@@ -9,6 +9,8 @@ import MyRequestsPage from './provider/MyRequestsPage';
 import PatientViewPage from './provider/PatientViewPage';
 import ProviderProfilePage from './provider/ProviderProfilePage';
 import ActivePatientsPage from './provider/ActivePatientsPage';
+import ReviewDoctorsPage from './ReviewDoctorsPage';
+import useReviewer from '../hooks/useReviewer';
 
 // Loaded on demand: the QR decoder is only needed when a doctor scans.
 const ScanPatientQRPage = lazy(() => import('./provider/ScanPatientQRPage'));
@@ -32,6 +34,7 @@ export default function ProviderDashboard() {
   const [justAdded, setJustAdded] = useState(null); // result of the last QR scan
   const [qrLinkError, setQrLinkError] = useState('');
   const [patientNotice, setPatientNotice] = useState(null); // shown on the opened profile
+  const reviewer = useReviewer();
 
   const openPatient = (patient, { focusConsultation: focus = false, notice = null } = {}) => {
     setSelectedPatient(patient);
@@ -68,9 +71,10 @@ export default function ProviderDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const baseItems = reviewer.isReviewer ? [...NAV_ITEMS, { key: 'review', label: 'Review doctors' }] : NAV_ITEMS;
   const items = selectedPatient
-    ? [...NAV_ITEMS, { key: 'patient', label: selectedPatient.name }]
-    : NAV_ITEMS;
+    ? [...baseItems, { key: 'patient', label: selectedPatient.name }]
+    : baseItems;
 
   return (
     <div className="app-shell">
@@ -81,6 +85,7 @@ export default function ProviderDashboard() {
         userName={user.full_name}
         roleLabel="Doctor"
         onLogout={logout}
+        badges={{ review: reviewer.pending }}
       />
       <main className="main">
         {active === 'dashboard' && (
@@ -116,6 +121,7 @@ export default function ProviderDashboard() {
         )}
         {active === 'patients' && <ActivePatientsPage onOpenPatient={openPatient} />}
         {active === 'profile' && <ProviderProfilePage />}
+        {active === 'review' && reviewer.isReviewer && <ReviewDoctorsPage onChanged={reviewer.refresh} />}
       </main>
     </div>
   );

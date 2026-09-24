@@ -105,6 +105,29 @@ export const api = {
     return res.blob();
   },
 
+  // ---- reviewer (doctor verification) ----
+  getReviewerStatus: () => request('/reviewer/me'),
+  reviewerListDoctors: (status = 'pending') => request(`/reviewer/doctors?status=${status}`),
+  reviewerDecide: (doctorId, decision, note) =>
+    request(`/reviewer/doctors/${doctorId}/decision`, { method: 'POST', body: { decision, note } }),
+  reviewerCertificateBlob: async (doctorId) => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/reviewer/doctors/${doctorId}/certificate`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let detail = `Error ${res.status}`;
+      try {
+        const payload = await res.json();
+        if (payload && payload.detail) detail = payload.detail;
+      } catch {
+        /* keep generic detail */
+      }
+      throw new ApiError(res.status, detail);
+    }
+    return res.blob();
+  },
+
   // ---- records ----
   listUnverified: () => request('/records/unverified'),
   listBodyParts: () => request('/records/body-parts'),

@@ -1057,6 +1057,63 @@ try:
 finally:
     db.close()
 
+# ---------------------------------------------------------------- 13j. reviewer screen (approve doctors in the app)
+os.environ.pop("MEDIPASS_REVIEWER_EMAILS", None)
+check(client.get("/reviewer/me", headers=patient_headers).json() == {"is_reviewer": False}, "nobody is a reviewer by default")
+check(client.get("/reviewer/doctors", headers=patient_headers).status_code == 403, "non-reviewers can't list doctors")
+
+r = client.post("/auth/register", json={"email": "revdoc@example.com", "password": "pw12345",
+                                        "full_name": "Dr. Review Me", "role": "provider"})
+revdoc_id = r.json()["id"]
+check(verify_email("revdoc@example.com").status_code == 200, "doctor to review verifies email")
+revdoc_headers = {"Authorization": "Bearer " + client.post(
+    "/auth/login", data={"username": "revdoc@example.com", "password": "pw12345"}).json()["access_token"]}
+r = client.post("/doctor-verification", headers=revdoc_headers, data={**form, "registration_number": "KMC 99999"},
+                files={"certificate": ("cert.pdf", cert, "application/pdf")})
+check(r.status_code == 200 and r.json()["status"] == "pending", "doctor submits details for review")
+
+os.environ["MEDIPASS_REVIEWER_EMAILS"] = "PRIYA@example.com, drkumar@example.com"  # case/space-insensitive
+check(client.get("/reviewer/me", headers=patient_headers).json() == {"is_reviewer": True}, "listed email is a reviewer")
+data = client.get("/reviewer/doctors", headers=patient_headers).json()
+row = next((d for d in data["doctors"] if d["id"] == revdoc_id), None)
+check(row and row["status"] == "pending" and row["registration_number"] == "KMC 99999" and row["has_certificate"]
+      and data["counts"]["pending"] >= 1, "pending list shows the doctor's details and certificate")
+check(all(d["status"] == "pending" for d in data["doctors"]), "the pending tab only lists pending doctors")
+check(client.get("/reviewer/doctors?status=bogus", headers=patient_headers).status_code == 400, "unknown tab rejected")
+r = client.get(f"/reviewer/doctors/{revdoc_id}/certificate", headers=patient_headers)
+check(r.status_code == 200 and r.content == cert, "reviewer opens the uploaded certificate")
+check(client.get(f"/reviewer/doctors/{revdoc_id}/certificate", headers=revdoc_headers).status_code == 403,
+      "a doctor can't open certificates through the reviewer API")
+
+r = client.post(f"/reviewer/doctors/{revdoc_id}/decision", headers=patient_headers, json={"decision": "reject", "note": "no"})
+check(r.status_code == 400, "rejecting needs a real reason")
+r = client.post(f"/reviewer/doctors/{revdoc_id}/decision", headers=patient_headers,
+                json={"decision": "reject", "note": "Registration number not found"})
+check(r.status_code == 200 and r.json()["status"] == "rejected" and r.json()["review_note"] == "Registration number not found",
+      "reviewer rejects with a reason")
+r = client.post(f"/reviewer/doctors/{revdoc_id}/decision", headers=patient_headers,
+                json={"decision": "approve", "note": "Re-checked on NMC register"})
+check(r.status_code == 200 and r.json()["status"] == "verified" and "Priya Sharma" in r.json()["reviewer"],
+      f"reviewer approves; their name is recorded ({r.json().get('reviewer')})")
+me = client.get("/doctor-verification/me", headers=revdoc_headers).json()
+check(me["status"] == "verified", "the doctor now shows as verified")
+vdoc = client.get("/doctor-verification/document", headers=revdoc_headers).json()
+check("Priya Sharma" in (vdoc["verification"]["reviewer"] or ""), "the verification document names the reviewer")
+db = SessionLocal()
+try:
+    notes = [n.message for n in db.query(models.Notification).filter(models.Notification.patient_id == revdoc_id)]
+    audits = [a.action for a in db.query(models.AuditLog).filter(models.AuditLog.patient_id == revdoc_id)]
+finally:
+    db.close()
+check(any("not approved" in n for n in notes) and any("has been verified" in n for n in notes),
+      "the doctor is notified of each decision")
+check(audits.count("doctor_verification_rejected") == 1 and audits.count("doctor_verification_approved") == 1,
+      "each decision is audited")
+kumar_id = client.get("/auth/me", headers=provider_headers).json()["id"]
+r = client.post(f"/reviewer/doctors/{kumar_id}/decision", headers=provider_headers, json={"decision": "approve"})
+check(r.status_code == 403, "a reviewer can't decide on their own verification")
+os.environ.pop("MEDIPASS_REVIEWER_EMAILS", None)
+
 # ---------------------------------------------------------------- 14. revoke
 # ---------------------------------------------------------------- imaging (demo patient)
 def unverified_for(doc_id):

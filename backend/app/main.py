@@ -11,7 +11,7 @@ from .llm import require_gemini_key
 
 # Fail at startup (not on the first upload) if the Gemini key is missing.
 require_gemini_key()
-from .routers import auth, documents, records, timeline, access, consultations, audit, users, notifications, patient_qr, links, doctor_verification, provider_patients
+from .routers import auth, documents, records, timeline, access, consultations, audit, users, notifications, patient_qr, links, doctor_verification, provider_patients, reviewer
 
 # Dev convenience: create tables on startup. For a real deployment you'd use
 # Alembic migrations instead of create_all.
@@ -55,6 +55,7 @@ app.include_router(patient_qr.router)
 app.include_router(links.router)
 app.include_router(doctor_verification.router)
 app.include_router(provider_patients.router)
+app.include_router(reviewer.router)
 
 
 @app.get("/health", tags=["health"])

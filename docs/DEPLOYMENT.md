@@ -38,6 +38,7 @@ Variables, or `railway api`).
 | `MEDIPASS_CORS_ORIGINS` | the frontend address |
 | `MEDIPASS_FRONTEND_URL` | the frontend address (links in emails) |
 | `RAILPACK_DEPLOY_APT_PACKAGES` | `tesseract-ocr` (local OCR fallback) |
+| `MEDIPASS_REVIEWER_EMAILS` | emails that get the **Review doctors** screen, comma-separated |
 
 ## Frontend service settings
 
@@ -52,7 +53,8 @@ Variables, or `railway api`).
 
 - **Logs:** `railway logs --service MediPass-AI` (add `--build <id>` for a
   build log); `railway deployment list --service MediPass-AI`.
-- **Approve a doctor / read the email log on the server:** open the service's
+- **Approve doctors:** log in with a reviewer account → **Review doctors**.
+- **Or approve / read the email log on the server:** open the service's
   shell (dashboard → service → Console, or `railway ssh` after adding an SSH
   key), then `python review_doctors.py list` /
   `approve <email> "note" --by "Name"`, or `cat /data/logs/email.log`.

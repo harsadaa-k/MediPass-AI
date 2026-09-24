@@ -58,6 +58,16 @@ project folder).
 - [ ] **Print / Save as PDF** → only the document prints
 - [ ] **Change a profile detail and resubmit** → back to *Under review*
 - [ ] (Optional) `reject <email> "reason"` → *Not approved* with the reason; the doctor can fix it and resubmit
+- [ ] **Review doctors screen:** with `MEDIPASS_REVIEWER_EMAILS` set to your account:
+  - [ ] a **Review doctors** item appears, with a badge for the number waiting;
+  - [ ] other accounts don't see it
+- [ ] **On a waiting doctor's card:**
+  - [ ] all their details show;
+  - [ ] **Open certificate** opens the file;
+  - [ ] **Check the NMC register** opens the NMC site
+- [ ] **✗ Reject** without a reason → *"Write the reason…"*; with a reason → moves to *Not approved*
+- [ ] **✓ Approve** → moves to *Verified*, with *"Last decision … by <you>"*; the doctor sees **✓ Verified doctor** and their document names you
+- [ ] **Your own doctor account** on the list → *"another reviewer has to decide"*
 
 ## 3. Doctor gets access to a patient
 - [ ] **Patient → My QR code**:

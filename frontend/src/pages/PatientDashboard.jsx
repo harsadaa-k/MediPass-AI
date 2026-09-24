@@ -12,6 +12,8 @@ import AuditLogPage from './patient/AuditLogPage';
 import MedicationsPage from './patient/MedicationsPage';
 import LabResultsPage from './patient/LabResultsPage';
 import NotificationsPage from './patient/NotificationsPage';
+import ReviewDoctorsPage from './ReviewDoctorsPage';
+import useReviewer from '../hooks/useReviewer';
 
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -31,6 +33,7 @@ export default function PatientDashboard() {
   const [active, setActive] = useState('dashboard');
   const [timelineRefreshKey, setTimelineRefreshKey] = useState(0);
   const [badges, setBadges] = useState({});
+  const reviewer = useReviewer();
 
   const loadBadges = async () => {
     if (!user) return; // token may not be set yet
@@ -62,16 +65,17 @@ export default function PatientDashboard() {
   return (
     <div className="app-shell">
       <Sidebar
-        items={NAV_ITEMS}
+        items={reviewer.isReviewer ? [...NAV_ITEMS, { key: 'review', label: 'Review doctors' }] : NAV_ITEMS}
         active={active}
         onSelect={setActive}
         userName={user.full_name}
         roleLabel="Patient"
         onLogout={logout}
-        badges={badges}
+        badges={{ ...badges, review: reviewer.pending }}
       />
       <main className="main">
         {active === 'dashboard' && <PatientOverview onNavigate={setActive} />}
+        {active === 'review' && reviewer.isReviewer && <ReviewDoctorsPage onChanged={reviewer.refresh} />}
         {active === 'timeline' && <PatientTimelinePage refreshKey={timelineRefreshKey} />}
         {active === 'medications' && <MedicationsPage />}
         {active === 'lab_results' && <LabResultsPage />}

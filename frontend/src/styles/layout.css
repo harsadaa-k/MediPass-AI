@@ -501,3 +501,19 @@
 .linked-rx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
 .linked-rx-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.45rem; font-size: 0.84rem; }
 .linked-rx-name { font-weight: 600; margin-right: 0.2rem; }
+
+/* ---------- reviewer screen (doctor verification) ---------- */
+.review-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--amber); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 0.8rem; min-width: 0; }
+.review-card.status-verified { border-left-color: var(--softgreen); }
+.review-card.status-rejected { border-left-color: #b3412c; }
+.review-card.status-not_submitted { border-left-color: var(--text-faint); }
+.review-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+.review-name { font-weight: 700; font-size: 1.02rem; color: var(--text); overflow-wrap: anywhere; }
+.review-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.45rem 1rem; margin: 0 0 0.7rem; }
+.review-fields dt { font-size: 0.72rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; }
+.review-fields dd { margin: 0.1rem 0 0; font-size: 0.88rem; overflow-wrap: anywhere; }
+.review-actions-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+.review-checks { font-size: 0.85rem; margin: 0.3rem 0 0.5rem; }
+.review-checks summary { cursor: pointer; color: var(--text-muted); }
+.review-checks ul { margin: 0.4rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.review-decision { border-top: 1px solid var(--border); padding-top: 0.7rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; }

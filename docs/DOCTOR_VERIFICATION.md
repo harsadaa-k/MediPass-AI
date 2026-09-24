@@ -40,8 +40,8 @@ registers automatically, because there's no public API. So:
    attached.
 2. **Human reviewer:** checks the name and registration number on the
    [Indian Medical Register](https://www.nmc.org.in/information-desk/indian-medical-register/)
-   (or the state council's site), and opens the uploaded certificate. There
-   is no admin screen yet, so review is done from the command line, in
+   (or the state council's site), and opens the uploaded certificate. This is
+   done on the **Review doctors** screen (below), or from the command line in
    `backend/` with the backend venv:
 
    ```bash
@@ -59,6 +59,37 @@ registers automatically, because there's no public API. So:
 
 The seeded `doctor@medipass.demo` account is pre-verified for demos. It has
 no certificate on file, so its document shows that check as not met.
+
+## Review doctors screen
+
+Accounts whose email is listed in **`MEDIPASS_REVIEWER_EMAILS`**
+(comma-separated, on the server) get a **Review doctors** item in the
+sidebar. It works for a patient or a doctor account, and the badge shows how
+many doctors are waiting.
+
+- **Tabs:** *Waiting for review* (oldest first) · *Verified* · *Not approved* ·
+  *Not submitted*, each with a count.
+- **Each doctor card shows:**
+  - name and email (and whether the email is verified);
+  - specialization, hospital, registration number, council, year,
+    qualifications, experience, education, other affiliations, submitted time;
+  - **📄 Open certificate** and **🔎 Check the NMC register**;
+  - the automatic checks (*6 of 7 met*, expandable);
+  - the last decision (who, when, note).
+- **✓ Approve** (optional note, asks to confirm) and **✗ Reject** (a reason of
+  at least 5 characters is required, and the doctor sees it). A verified
+  doctor can have their verification revoked the same way.
+- **Safeguards:**
+  - the decision records the reviewer as *"Name (email)"*, which appears on
+    the doctor's verification document;
+  - the doctor is notified, and it's audited (`doctor_verification_approved` /
+    `_rejected`);
+  - a reviewer can't decide on their own account.
+
+API (reviewers only, otherwise 403): `GET /reviewer/me`,
+`GET /reviewer/doctors?status=pending|verified|rejected|not_submitted|all`,
+`GET /reviewer/doctors/{id}/certificate`,
+`POST /reviewer/doctors/{id}/decision` `{"decision": "approve"|"reject", "note": "..."}`.
 
 ## Verification document
 
