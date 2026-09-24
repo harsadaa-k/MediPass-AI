@@ -1374,6 +1374,73 @@ r = client.get(f"/timeline/{demo_id}", headers=demo_headers)
 check(any(x["title"] == "Admission at Sunrise Hospital" for x in r.json()["records"]),
       "legacy discharge_summary records still on the timeline")
 
+# ---------------------------------------------------------------- 13n. prescription photo: no body part outside lab results
+if not USE_REAL_GEMINI:
+    # Gemini sometimes puts imaging fields on every record of a photographed prescription
+    fake_gemini.next_payload = {"document_type": "prescription", "prescribing_doctor": "Dr. Mehta", "records": [
+        {"record_type": "medication", "title": "Sertraline 50mg",
+         "details": {"medicine": "Sertraline", "dose": "50mg", "timing": "1-0-0", "body_part": "unknown", "modality": "other"},
+         "confidence": 0.95, "record_date": "2025-05-31"},
+        {"record_type": "diagnosis", "title": "Chronic depression",
+         "details": {"text": "Mood disorder", "body_part": "unknown"}, "confidence": 0.95, "record_date": "2025-05-31"},
+        {"record_type": "consultation", "title": "Urgent referral",
+         "details": {"text": "Refer to psychiatrist", "body_part": "chest", "view": "PA"}, "confidence": 0.95,
+         "record_date": "2025-05-31"},
+    ]}
+    r = upload("rx_photo.png", make_test_prescription_png(), "image/png", "prescription", demo_headers)
+    rx_doc = r.json()["id"]
+    rx_recs = [x for x in client.get("/records/unverified", headers=demo_headers).json() if x["source_document_id"] == rx_doc]
+    check(len(rx_recs) == 3 and not any(k in x["details"] for x in rx_recs
+                                        for k in ("body_part", "body_part_label", "modality", "view")),
+          "a prescription photo's medicine/diagnosis/consultation records carry no body part")
+    check(next(x for x in rx_recs if x["record_type"] == "consultation")["title"] == "Urgent referral",
+          "the consultation keeps its own title (not renamed to an X-ray)")
+    r = client.post(f"/records/{rx_recs[0]['id']}/verify", json={}, headers=demo_headers)
+    check(r.status_code == 200, "a prescription record is confirmed without choosing a body part")
+
+    # records saved before the fix still hold a stray body part: confirming just drops it
+    db = SessionLocal()
+    try:
+        row = db.query(models.MedicalRecord).filter(models.MedicalRecord.id == rx_recs[1]["id"]).first()
+        row.details = json.dumps({"text": "Mood disorder", "body_part": "unknown", "body_part_source": "ai"})
+        db.commit()
+    finally:
+        db.close()
+    r = client.post(f"/records/{rx_recs[1]['id']}/verify", json={}, headers=demo_headers)
+    check(r.status_code == 200 and r.json()["title"] == "Chronic depression"
+          and "body_part" not in r.json()["details"],
+          "an older diagnosis with a stray body part confirms as-is, keeps its title, body part removed")
+    client.post(f"/records/{rx_recs[2]['id']}/verify", json={}, headers=demo_headers)
+
+# ---------------------------------------------------------------- 13o. sharing recommendation reads the whole doctor profile
+check(llm.detect_specialty("Abhijna Chattopadhyay", "MBBS, MD Psychiatry (NIMHANS), MRCPsych (UK)", [], "Psychiatry")
+      == "Psychiatrist", "doctor's name in the Specialty field -> specialty read from the qualification")
+check(llm.detect_specialty("Abhijna Chattopadhyay", "MBBS", [], "Psychiatry") == "Psychiatrist",
+      "... or from the hospital field when that's where it was typed")
+check(llm.detect_specialty("", "MBBS", [{"degree": "MD Cardiology", "institution": "AIIMS"}], "") == "Cardiologist",
+      "... or from the education list")
+check(llm.detect_specialty("", "MBBS", [], "City General Hospital") is None,
+      "a hospital called 'General' doesn't make the doctor a general physician")
+prompts = []
+
+
+def _empty_answer(prompt, purpose=""):
+    prompts.append(prompt)
+    return mock.Mock(text=json.dumps({"recommended_scopes": [],
+                                      "explanation": "Specialty unknown, so nothing is recommended."}))
+
+
+with mock.patch.object(llm, "generate_content", side_effect=_empty_answer):
+    rec = llm.recommend_sharing_scope("Abhijna Chattopadhyay", qualification="MBBS, MD Psychiatry", hospital="Psychiatry")
+check("MD Psychiatry" in prompts[0] and "Psychiatrist" in prompts[0],
+      "the AI is given the qualification and the detected specialty, not just the Specialty field")
+check(rec["recommended_scopes"] == ["medications", "diagnoses", "labs"] and "Psychiatrist" in rec["explanation"],
+      f"an empty AI answer falls back to the psychiatrist's minimum set ({rec})")
+with mock.patch.object(llm, "generate_content", side_effect=RuntimeError("down")):
+    rec = llm.recommend_sharing_scope("Abhijna Chattopadhyay", qualification="MBBS, MD Psychiatry")
+check(rec["recommended_scopes"] == ["medications", "diagnoses", "labs"] and "Psychiatrist" in rec["explanation"],
+      "Gemini down: rule-based suggestion uses the detected specialty")
+
 # ---------------------------------------------------------------- AI summary citation repair
 from app.routers.timeline import _clean_citations  # noqa: E402
 _ids = {"a" * 32, "b" * 32}

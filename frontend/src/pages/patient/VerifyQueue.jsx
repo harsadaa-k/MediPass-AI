@@ -100,7 +100,9 @@ function BodyPartPicker({ record, bodyParts, value, onChange }) {
 function VerifyCard({ record, onDone, bodyParts }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
-  const isImaging = record.details && 'body_part' in record.details;
+  // Only lab results can be images (X-ray/scan); a prescription photo's
+  // medicines, diagnoses and advice never need a body part.
+  const isImaging = record.record_type === 'lab_result' && record.details && 'body_part' in record.details;
   const [bodyPart, setBodyPart] = useState(record.details?.body_part || 'unknown');
   const [recordDate, setRecordDate] = useState(record.record_date);
   const today = todayISO(); // local YYYY-MM-DD

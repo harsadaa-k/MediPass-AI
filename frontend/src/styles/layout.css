@@ -502,6 +502,10 @@
 .linked-rx-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.45rem; font-size: 0.84rem; }
 .linked-rx-name { font-weight: 600; margin-right: 0.2rem; }
 
+/* consultation note shown as an extra entry on its prescription's card */
+.linked-consult-kind { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem; overflow-wrap: anywhere; }
+.linked-consult-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 0.8rem; margin-top: 0.45rem; font-size: 0.8rem; color: var(--text-muted); }
+
 /* ---------- reviewer screen (doctor verification) ---------- */
 .review-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--amber); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 0.8rem; min-width: 0; }
 .review-card.status-verified { border-left-color: var(--softgreen); }

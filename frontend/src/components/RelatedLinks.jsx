@@ -16,34 +16,6 @@ function showOnTimeline(docId) {
   }
 }
 
-/** What the linked prescription says: medicines with dose, timing and course. */
-function PrescriptionContents({ doc }) {
-  if (!doc.items?.length && !doc.diagnoses?.length) return null;
-  return (
-    <div className="linked-rx">
-      <div className="linked-rx-head">
-        💊 Prescription from <strong>{doc.doctor || 'the doctor'}</strong>
-        {doc.hospital ? ` · ${doc.hospital}` : ''}{doc.date ? ` · ${doc.date}` : ''}
-      </div>
-      {doc.items?.length > 0 && (
-        <ul className="linked-rx-list">
-          {doc.items.map((m, i) => (
-            <li key={i}>
-              <span className="linked-rx-name">{m.name}</span>
-              {[m.dose, m.timing, m.instructions, m.course].filter(Boolean).map((v, j) => (
-                <span key={j} className="med-detail-chip">{v}</span>
-              ))}
-            </li>
-          ))}
-        </ul>
-      )}
-      {doc.diagnoses?.length > 0 && (
-        <div className="muted" style={{ fontSize: '0.82rem' }}>Diagnosis: {doc.diagnoses.join(', ')}</div>
-      )}
-    </div>
-  );
-}
-
 /** The doctor's consultation (written from their account), shown with the prescription it belongs to. */
 export function ConsultationContents({ note }) {
   const doctor = `Dr. ${(note.author_name || '').replace(/^dr\.?\s*/i, '')}`;
@@ -216,7 +188,6 @@ export function ConsultationLinkPanel({ link, canEdit, isPatient, onChanged }) {
             Prescription: <strong>{docLabel(link.document)}</strong>
             <span className="muted" title={parseUtc(link.updated_at)?.toLocaleString()}> — {byline}</span>
           </span>
-          <PrescriptionContents doc={link.document} />
           <span className="related-actions">
             <button className="btn btn-secondary btn-sm" onClick={() => showOnTimeline(link.document.id)}>
               Show on timeline
@@ -270,24 +241,42 @@ export function ConsultationLinkPanel({ link, canEdit, isPatient, onChanged }) {
   );
 }
 
-/** Reverse direction: on a prescription, the consultation notes linked to it. */
+/**
+ * Reverse direction: the doctor's consultation notes linked to a
+ * prescription, added as extra entries at the bottom of the prescription's
+ * own card (same entry format as its medicines and diagnoses).
+ */
 export function PrescriptionLinkPanel({ links }) {
   if (!links?.length) return null;
   return (
-    <div className="related-docs">
-      <span className="related-title">🔗 Linked consultation{links.length > 1 ? 's' : ''}</span>
-      {links.map((l) => (
-        <div key={l.id} className="related-row">
-          <ConsultationContents note={l.consultation} />
-          <span className="muted" style={{ fontSize: '0.8rem' }}>
-            <span className="mono">{l.ref}</span> · {l.method === 'manual' ? 'linked manually' : 'linked automatically'}
-            {' '}· {l.status === 'confirmed' ? '✓ confirmed by patient' : 'awaiting patient confirmation'}
-          </span>
-          <button className="btn btn-secondary btn-sm" onClick={() => jumpTo(l.consultation.id)}>
-            Go to note
-          </button>
-        </div>
-      ))}
+    <div className="prescription-med-list linked-consult-list">
+      {links.map((l) => {
+        const note = l.consultation;
+        const doctor = `Dr. ${(note.author_name || '').replace(/^dr\.?\s*/i, '')}`;
+        const where = [note.author_specialty, note.author_hospital].filter(Boolean).join(', ');
+        return (
+          <div key={l.id} className="diagnosis-item">
+            <div className="linked-consult-kind">
+              🩺 Consultation · {note.date} · by <strong>{doctor}</strong>{where ? ` (${where})` : ''}
+            </div>
+            <div className="med-item-name">{note.title}</div>
+            {note.text && <p className="diagnosis-text">{note.text}</p>}
+            {note.follow_up && <p className="diagnosis-text"><strong>Follow-up:</strong> {note.follow_up}</p>}
+            {note.text === undefined && (
+              <p className="diagnosis-text muted">The note's content isn't shared with you.</p>
+            )}
+            <div className="linked-consult-meta">
+              <span>
+                <span className="mono">{l.ref}</span> · {l.method === 'manual' ? 'linked manually' : 'linked automatically'}
+                {' '}· {l.status === 'confirmed' ? '✓ confirmed by patient' : 'awaiting patient confirmation'}
+              </span>
+              <button className="btn btn-secondary btn-sm" onClick={() => jumpTo(note.id)}>
+                Go to note
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -120,7 +120,14 @@ export default function Timeline({ patientId, refreshKey }) {
       linksByDoc.set(l.document.id, [...(linksByDoc.get(l.document.id) || []), l]);
     }
   }
-  const annotatedDocs = new Set(); // show the reverse link once per prescription
+  const annotatedDocs = new Set(); // anchor each prescription once
+  // Linked consultations go under the prescription's Medicines card (the
+  // Diagnosis card only when the medicines aren't shown), once per document.
+  const docsWithMedicines = new Set(
+    grouped.filter((e) => e.type === 'group' && e.groupType === 'medicines')
+      .map((e) => e.records[0].source_document_id)
+  );
+  const consultsShown = new Set();
   const canEdit = (link) =>
     user?.role === 'patient' || (link?.consultation?.author_id && link.consultation.author_id === user?.id);
 
@@ -164,6 +171,9 @@ export default function Timeline({ patientId, refreshKey }) {
               const docId = entry.records[0].source_document_id;
               const firstForDoc = !annotatedDocs.has(docId);
               annotatedDocs.add(docId);
+              const showConsults = !consultsShown.has(docId)
+                && (entry.groupType === 'medicines' || !docsWithMedicines.has(docId));
+              if (showConsults) consultsShown.add(docId);
               return (
                 <GroupedRecordBox
                   key={`group-${entry.groupType}-${docId}`}
@@ -176,7 +186,7 @@ export default function Timeline({ patientId, refreshKey }) {
                     onSaved: load,
                   } : undefined}
                 >
-                  {firstForDoc && <PrescriptionLinkPanel links={linksByDoc.get(docId)} />}
+                  {showConsults && <PrescriptionLinkPanel links={linksByDoc.get(docId)} />}
                 </GroupedRecordBox>
               );
             }

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas, auth
 from ..database import get_db
-from .doctor_verification import is_verified, require_verified_doctor
+from .doctor_verification import credential_for, is_verified, require_verified_doctor
 
 router = APIRouter(prefix="/access-requests", tags=["access"])
 
@@ -171,7 +171,20 @@ def get_ai_recommendation(
     provider_profile = db.query(models.ProviderProfile).filter(models.ProviderProfile.user_id == grant.provider_id).first()
     specialty = provider_profile.specialty if provider_profile and provider_profile.specialty else "General Practitioner"
     
-    return recommend_sharing_scope(specialty)
+    # Everything the doctor submitted for verification, so a wrong Specialty
+    # field (e.g. their name) doesn't spoil the recommendation.
+    cred = credential_for(db, grant.provider_id)
+    try:
+        education = json.loads(cred.education) if cred and cred.education else []
+    except ValueError:
+        education = []
+
+    return recommend_sharing_scope(
+        specialty,
+        qualification=cred.qualification if cred else "",
+        hospital=provider_profile.hospital_name if provider_profile else "",
+        education=education if isinstance(education, list) else [],
+    )
 
 @router.post("/{grant_id}/revoke", response_model=schemas.AccessGrantOut)
 def revoke_access(

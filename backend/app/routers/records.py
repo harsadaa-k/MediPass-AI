@@ -74,7 +74,16 @@ def verify_record(
     # Imaging records: the body part must be a known region and is stored as
     # patient-confirmed -- the AI/DICOM value is only ever a suggestion.
     details = json.loads(record.details) if record.details else {}
-    if isinstance(details, dict) and "body_part" in details:
+    is_lab = record.record_type == models.RecordType.lab_result
+    if isinstance(details, dict) and not is_lab and any(
+            k in details for k in ("body_part", "body_part_label", "body_part_source", "body_part_note")):
+        # Not an image (e.g. a medication read from a prescription photo):
+        # stray imaging fields are dropped, no body part is needed.
+        for k in ("modality", "body_part", "body_part_label", "body_part_source", "body_part_note",
+                  "laterality", "view"):
+            details.pop(k, None)
+        record.details = json.dumps(details)
+    if isinstance(details, dict) and is_lab and "body_part" in details:
         part = imaging.normalize_body_part(details.get("body_part"))
         if part == "unknown":
             raise HTTPException(

@@ -332,12 +332,14 @@ def extract_medical_records(file_bytes: bytes, mime_type: str, fallback_date: da
         # title from it, so "X-ray of Chest" always matches details.body_part.
         # Only a real image counts: an imaging modality or an identified body
         # part. Blood tests etc. can come back with modality "other" -- those
-        # stay ordinary lab results.
+        # stay ordinary lab results. Only lab results can be images: imaging
+        # fields on a medication/diagnosis/consultation (e.g. from a
+        # prescription photo) are dropped, so no body part is asked for.
         is_imaging = (
             details.get("modality") in ("xray", "ct", "mri", "ultrasound")
             or normalize_body_part(details.get("body_part")) not in ("unknown", "other")
         )
-        if r.get("record_type") == "lab_result" and not is_imaging:
+        if r.get("record_type") != "lab_result" or not is_imaging:
             for k in ("modality", "body_part", "laterality", "view"):
                 details.pop(k, None)
         if r.get("record_type") == "lab_result" and is_imaging:
@@ -382,10 +384,45 @@ _RULE_BASED_SCOPES = [
     (("cardio",), ["medications", "diagnoses", "labs"]),
     (("endocrin", "diabet"), ["medications", "diagnoses", "labs"]),
     (("nephro", "hepat", "gastro", "oncolog", "hematolog"), ["medications", "diagnoses", "labs"]),
+    # mood/psychotic disorders: current medicines (interactions), past
+    # diagnoses, and labs such as TSH/B12/lithium levels
+    (("psychiat", "neurolog"), ["medications", "diagnoses", "labs"]),
     (("dermat", "allerg", "immunolog"), ["medications", "allergies", "diagnoses"]),
-    (("anesth", "surgeon", "surgery"), ["medications", "allergies", "diagnoses", "labs"]),
-    (("dent", "ophthal", "otolaryng", "ent specialist", "psychiat"), ["medications", "allergies"]),
+    (("anesth", "anaesth", "surgeon", "surgery"), ["medications", "allergies", "diagnoses", "labs"]),
+    (("dent", "ophthal", "otolaryng", "ent specialist"), ["medications", "allergies"]),
 ]
+
+# A doctor's specialty, read from everything they submitted for
+# verification -- the free-text Specialty field alone can be wrong (e.g. the
+# doctor's own name typed into it), while "MD Psychiatry" is reliable.
+_SPECIALTY_NAMES = [
+    ("psychiat", "Psychiatrist"), ("cardio", "Cardiologist"), ("endocrin", "Endocrinologist"),
+    ("diabet", "Diabetologist"), ("nephro", "Nephrologist"), ("hepat", "Hepatologist"),
+    ("gastro", "Gastroenterologist"), ("oncolog", "Oncologist"), ("hematolog", "Hematologist"),
+    ("haematolog", "Hematologist"), ("neurolog", "Neurologist"), ("dermat", "Dermatologist"),
+    ("allerg", "Allergist"), ("immunolog", "Immunologist"), ("anesth", "Anaesthetist"),
+    ("anaesth", "Anaesthetist"), ("surgeon", "Surgeon"), ("surgery", "Surgeon"), ("dental", "Dentist"),
+    ("dentist", "Dentist"), ("ophthal", "Ophthalmologist"), ("otolaryng", "ENT specialist"),
+    ("ent specialist", "ENT specialist"), ("family", "Family physician"),
+    ("internal medicine", "General physician"), ("general", "General physician"),
+    ("physician", "General physician"), ("practitioner", "General practitioner"),
+]
+_GENERIC_WORDS = ("general", "family", "physician", "practitioner", "internal medicine")
+
+
+def detect_specialty(specialty: str = "", qualification: str = "", education=None, hospital: str = ""):
+    """The doctor's specialty as a readable name, or None. Checked in order of
+    reliability; a hospital name only counts for a specific specialty (so
+    'City General Hospital' doesn't make every doctor a general physician)."""
+    degrees = " ".join(str(e.get("degree") or "") for e in (education or []) if isinstance(e, dict))
+    for text, allow_generic in ((specialty, True), (qualification, True), (degrees, True), (hospital, False)):
+        low = (text or "").lower()
+        for key, name in _SPECIALTY_NAMES:
+            if not allow_generic and key in _GENERIC_WORDS:
+                continue
+            if re.search(r"\b" + re.escape(key), low):
+                return name
+    return None
 
 
 def _rule_based_scope(specialty: str, reason: str) -> dict:
@@ -400,28 +437,48 @@ def _rule_based_scope(specialty: str, reason: str) -> dict:
     }
 
 
-def recommend_sharing_scope(specialty: str) -> dict:
+_ALLOWED_SCOPES = ["medications", "labs", "allergies", "diagnoses", "full_history"]
+
+
+def recommend_sharing_scope(specialty: str, qualification: str = "", hospital: str = "", education=None) -> dict:
+    detected = detect_specialty(specialty, qualification, education, hospital)
+    label = detected or "doctor"
+    degrees = "; ".join(
+        " ".join(str(e.get(k) or "") for k in ("degree", "institution", "year")).strip()
+        for e in (education or []) if isinstance(e, dict)
+    ) or "not given"
+    hint = f"Their specialty, read from these details: {detected}." if detected else ""
     prompt = f"""
-    You are a medical privacy and data-sharing AI. 
-    A doctor with the specialty '{specialty}' has requested access to a patient's medical records.
-    
-    Which of the following data scopes are clinically necessary and appropriate for this specialty to see?
+    You are a medical privacy and data-sharing AI.
+    A doctor has requested access to a patient's medical records. What they submitted for verification:
+      Specialty field: {specialty or 'not given'}
+      Qualification: {qualification or 'not given'}
+      Education: {degrees}
+      Hospital / clinic: {hospital or 'not given'}
+    {hint}
+
+    The Specialty field is typed by the doctor and can be wrong (for example their own name, or the
+    hospital). Work out the doctor's actual specialty from ALL the details above -- a qualification
+    such as "MD Psychiatry" is the most reliable. Do not refuse or recommend nothing because the
+    Specialty field looks odd; if the specialty truly can't be told, treat them as a general doctor.
+
+    Which of the following data scopes are clinically necessary and appropriate for this doctor to see?
     Available scopes: ["medications", "labs", "allergies", "diagnoses", "full_history"]
-    
-    Consider the minimum necessary standard for data sharing. For example, a Cardiologist needs 'medications', 'diagnoses', and 'labs'. A General Practitioner might need 'full_history'.
-    
+
+    Consider the minimum necessary standard for data sharing. For example, a Cardiologist needs 'medications', 'diagnoses', and 'labs'. A Psychiatrist needs 'medications', 'diagnoses' and 'labs'. A General Practitioner might need 'full_history'.
+
     Output a valid JSON object exactly like this:
     {{
       "recommended_scopes": ["scope1", "scope2"],
-      "explanation": "A short, 1-sentence explanation of why these scopes are recommended for this specialty."
+      "explanation": "A short, 1-sentence explanation naming the doctor's specialty and why these scopes are recommended for it."
     }}
     """
-    
+
     try:
         response = generate_content(prompt, purpose="Scope recommendation")
     except Exception as e:
         print(f"Scope recommendation: Gemini unavailable ({str(e)[:80]}), using rule-based fallback")
-        return _rule_based_scope(specialty, "AI assistant unavailable, rule-based suggestion")
+        return _rule_based_scope(label, "AI assistant unavailable, rule-based suggestion")
 
     raw = response.text.strip()
     if raw.startswith("```json"):
@@ -429,11 +486,17 @@ def recommend_sharing_scope(specialty: str) -> dict:
     if raw.endswith("```"):
         raw = raw[:-3]
     raw = raw.strip()
-    
+
     try:
-        return json.loads(raw)
+        result = json.loads(raw)
+        scopes = [s for s in dict.fromkeys(result.get("recommended_scopes") or []) if s in _ALLOWED_SCOPES]
+        explanation = str(result.get("explanation") or "").strip()
     except Exception:
-        return _rule_based_scope(specialty, "AI response could not be parsed, rule-based suggestion")
+        return _rule_based_scope(label, "AI response could not be parsed, rule-based suggestion")
+    if not scopes or not explanation:
+        # never leave the patient with an empty suggestion
+        return _rule_based_scope(label, "rule-based suggestion")
+    return {"recommended_scopes": scopes, "explanation": explanation}
 
 
 # Schema for structuring voice transcripts
