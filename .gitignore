@@ -1,0 +1,24 @@
+# Secrets
+.env
+**/.env
+
+# Patient data: databases, backups and uploaded documents never go to GitHub
+*.db
+*.db.bak*
+*.db-journal
+uploads/
+**/uploads/
+smoke_test_uploads/
+
+# Environments and build output
+venv/
+**/venv/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+*.log
+
+# Server logs (email delivery log etc.)
+logs/
+**/logs/
