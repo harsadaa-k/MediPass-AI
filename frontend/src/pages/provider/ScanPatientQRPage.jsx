@@ -125,8 +125,9 @@ export default function ScanPatientQRPage({ onAdded }) {
       <div className="page-header">
         <h1>Scan patient QR</h1>
         <p>
-          Ask the patient to open <strong>My QR code</strong> in MediPass and scan it. They're added to your
-          patients immediately, with the sharing they chose — no access request needed.
+          Ask the patient to open <strong>My QR code</strong> in MediPass and scan it, or type the code shown above
+          their QR. They're added to your patients immediately, with the sharing they chose — no access request
+          needed.
         </p>
       </div>
 
@@ -162,12 +163,15 @@ export default function ScanPatientQRPage({ onAdded }) {
           }}
         >
           <div className="field">
-            <label htmlFor="qr-paste">Or paste the code / link</label>
+            <label htmlFor="qr-paste">Or type the patient's code</label>
             <input
               id="qr-paste"
+              className="mono"
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
-              placeholder="e.g. http://localhost:5173/add-patient/… or the code itself"
+              placeholder="e.g. K7Q4-M9TX (shown above the patient's QR) or the QR link"
+              autoComplete="off"
+              spellCheck={false}
             />
           </div>
           <button type="submit" className="btn btn-secondary btn-sm" disabled={!pasted.trim()}>

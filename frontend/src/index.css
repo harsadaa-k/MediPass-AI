@@ -484,6 +484,24 @@ button {
   line-height: 0;
 }
 
+.qr-short-code {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius);
+  background: var(--medteal-100);
+  border: 1px solid var(--medteal);
+}
+
+.qr-short-code strong {
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+  color: var(--deepblue);
+}
+
 .qr-status {
   margin: 0;
   font-size: 0.92rem;
@@ -647,6 +665,26 @@ button {
   background: var(--amber-100);
   border: 1px solid var(--amber);
   color: #6b4513;
+}
+
+.notice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.2rem;
+  border-radius: var(--radius);
+  background: var(--medteal-100);
+  border: 1px solid var(--medteal);
+  color: var(--deepblue);
+}
+
+.notice-bar-item {
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
 }
 
 .verification-status {

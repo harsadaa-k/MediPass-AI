@@ -32,6 +32,7 @@ export default function MyQRCodePage() {
   const [validMinutes, setValidMinutes] = useState(15);
   const [qr, setQr] = useState(null); // includes .token right after creation
   const [token, setToken] = useState('');
+  const [shortCode, setShortCode] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,6 +66,7 @@ export default function MyQRCodePage() {
     try {
       const created = await api.createPatientQR(scope, accessDays, validMinutes);
       setToken(created.token);
+      setShortCode(created.short_code || '');
       setQr(created);
       setNow(Date.now());
     } catch (err) {
@@ -140,8 +142,16 @@ export default function MyQRCodePage() {
         <div className="surface qr-card" style={{ maxWidth: 620 }}>
           {live && (
             <>
-              <div className="qr-box">
-                <QRCode value={qrValue} size={220} />
+              <div>
+                {shortCode && (
+                  <div className="qr-short-code">
+                    <span className="muted">Code</span>
+                    <strong className="mono" aria-label="Patient code">{shortCode}</strong>
+                  </div>
+                )}
+                <div className="qr-box">
+                  <QRCode value={qrValue} size={220} />
+                </div>
               </div>
               <div>
                 <h3 style={{ margin: '0 0 0.4rem' }}>Ready to scan</h3>
@@ -151,11 +161,10 @@ export default function MyQRCodePage() {
                 <p className="mono" style={{ fontSize: '0.88rem', margin: '0 0 0.8rem' }}>
                   Expires in {formatRemaining(expiresAt - now)}
                 </p>
-                <details style={{ fontSize: '0.8rem', marginBottom: '0.8rem' }}>
-                  <summary className="muted">Doctor's camera not working?</summary>
-                  <p className="muted" style={{ margin: '0.4rem 0' }}>They can paste this code instead:</p>
-                  <code style={{ wordBreak: 'break-all' }}>{token}</code>
-                </details>
+                <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 0.8rem' }}>
+                  Doctor's camera not working? They can type the code <strong className="mono">{shortCode}</strong>
+                  {' '}under <strong>Scan patient QR</strong> instead. It works once, like the QR.
+                </p>
                 <button className="btn btn-danger btn-sm" onClick={cancel}>Cancel this code</button>
               </div>
             </>

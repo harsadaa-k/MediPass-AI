@@ -410,6 +410,16 @@ check(r.json()[0]["provider_verified"] is True and r.json()[0]["provider_hospita
 r = client.get("/access-requests/mine", headers=provider_headers)
 check(r.status_code == 200 and r.json()[0]["status"] == "approved", "provider sees approved grant")
 
+# Doctor notifications: the doctor hears that the patient approved
+doc_notes = client.get("/notifications", headers=provider_headers).json()
+check(any(n["message"].startswith("Priya Sharma approved your access request") and "medications" in n["message"]
+          and not n["is_read"] for n in doc_notes), "doctor is notified that the patient approved (with what's shared)")
+check(client.get("/users/badges", headers=provider_headers).json()["unread_notifications"] >= 1,
+      "doctor's unread-notifications badge counts it")
+check(not any("approved your access request" in n["message"]
+              for n in client.get("/notifications", headers=patient_headers).json()),
+      "the doctor's notification isn't shown to the patient")
+
 r = client.get(f"/timeline/{patient_id}", headers=provider_headers)
 check(r.status_code == 200, "provider views timeline after consent")
 expected = [rec for rec in patient_records if rec["record_type"] in SCOPE_TYPES]
@@ -556,6 +566,47 @@ check(any("already their patient" in n["message"] for n in client.get("/notifica
       "patient notified that nothing changed")
 check(client.post("/patient-qr/redeem", json={"code": again["token"]}, headers=provider_headers).status_code == 410,
       "the code is still used up")
+
+# ---------------------------------------------------------------- 13m. short code above the QR (typed by the doctor)
+import re as _re  # noqa: E402
+from app.routers import patient_qr as _pqr  # noqa: E402
+
+# A patient of their own, so the QR checks above and the audit counts below stay as they are.
+client.post("/auth/register", json={"email": "typed.code@example.com", "password": "pw12345",
+                                    "full_name": "Typed Code", "role": "patient"})
+verify_email("typed.code@example.com")
+r = client.post("/auth/login", data={"username": "typed.code@example.com", "password": "pw12345"})
+tc_headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+typed = client.post("/patient-qr", json={"scope": ["labs"], "access_days": 7}, headers=tc_headers).json()
+check(bool(_re.fullmatch(r"[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}", typed.get("short_code") or "")),
+      "a new QR comes with a short code like K7Q4-M9TX (no 0/O/1/I/L)")
+check(client.get(f"/patient-qr/{typed['id']}", headers=tc_headers).json()["short_code"] is None,
+      "the short code is only returned once, like the token")
+db = SessionLocal()
+try:
+    row = db.query(models.PatientQRCode).filter(models.PatientQRCode.id == typed["id"]).first()
+    check(row.short_code_hash and typed["short_code"].replace("-", "") not in row.short_code_hash,
+          "only a hash of the short code is stored")
+finally:
+    db.close()
+r = client.post("/patient-qr/redeem", json={"code": " " + typed["short_code"].lower().replace("-", " ") + " "},
+                headers=provider_headers)
+check(r.status_code == 200 and r.json()["patient_name"] == "Typed Code" and r.json()["scope"] == ["labs"]
+      and not r.json()["already_had_access"], "doctor types the short code (any case/spacing) -> patient added")
+check(client.post("/patient-qr/redeem", json={"code": typed["short_code"]}, headers=provider_headers).status_code == 410,
+      "a short code only works once")
+cancelled = client.post("/patient-qr", json={"scope": ["labs"]}, headers=tc_headers).json()
+client.post(f"/patient-qr/{cancelled['id']}/revoke", headers=tc_headers)
+check(client.post("/patient-qr/redeem", json={"code": cancelled["short_code"]}, headers=provider_headers).status_code == 410,
+      "a cancelled short code is rejected")
+_pqr._bad_codes.clear()
+for _ in range(_pqr.MAX_BAD_CODES):
+    client.post("/patient-qr/redeem", json={"code": "ZZZZ-ZZZZ"}, headers=provider_headers)
+live = client.post("/patient-qr", json={"scope": ["labs"]}, headers=tc_headers).json()
+r = client.post("/patient-qr/redeem", json={"code": live["short_code"]}, headers=provider_headers)
+check(r.status_code == 429, "a doctor who keeps typing wrong codes is paused (brute-force guard)")
+_pqr._bad_codes.clear()
+client.post(f"/patient-qr/{live['id']}/revoke", headers=tc_headers)
 
 # ---------------------------------------------------------------- consultation note <-> prescription links
 def upload_rx(name, doctor, when, medicine):
@@ -1361,6 +1412,13 @@ else:
 # ---------------------------------------------------------------- 14. revoke
 r = client.post(f"/access-requests/{grant_id}/revoke", headers=patient_headers)
 check(r.status_code == 200 and r.json()["status"] == "revoked", "patient revokes access")
+check(any(n["message"] == "Priya Sharma revoked your access to their records."
+          for n in client.get("/notifications", headers=provider_headers).json()),
+      "doctor is notified when the patient revokes access")
+r2 = client.post("/notifications/read-all", headers=provider_headers)
+check(r2.status_code == 200 and r2.json()["marked"] >= 1
+      and client.get("/users/badges", headers=provider_headers).json()["unread_notifications"] == 0,
+      "doctor marks all notifications read -> badge back to 0")
 check(client.get(f"/timeline/{patient_id}", headers=provider_headers).status_code == 403,
       "provider blocked again after revocation")
 check(client.get("/consultations/mine", headers=provider_headers).json() == [],

@@ -177,6 +177,9 @@ class PatientQRCode(Base):
     id = Column(String, primary_key=True, default=gen_id)
     patient_id = Column(String, ForeignKey("users.id"), nullable=False)
     token_hash = Column(String, unique=True, index=True, nullable=False)
+    # Hash of the short code shown above the QR (e.g. K7Q4-M9TX) that a
+    # doctor can type instead of scanning. Same rules as the QR token.
+    short_code_hash = Column(String, index=True, nullable=True)
     scope = Column(Text, nullable=False, default="[]")  # JSON list, same values as AccessGrant.scope
     access_days = Column(Integer, nullable=False, default=30)
 

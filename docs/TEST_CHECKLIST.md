@@ -79,6 +79,7 @@ project folder).
 - [ ] **Patient → My QR code**:
   - [ ] choose what to share and for how long → a QR code appears with a countdown;
   - [ ] the doctor clicks **Scan patient QR** and scans it → *"✓ added to your patients"*
+  - [ ] a short code (e.g. `K7Q4-M9TX`) shows above the QR; the doctor types it under **Or type the patient's code** → added the same way; the same code again → *"already been used"*
 - [ ] **Scanning the same patient again** → "already your patient" and their profile opens
 - [ ] **Request access** (doctor → Find a patient by email):
   - [ ] the patient sees it in **Access requests**;
@@ -185,6 +186,7 @@ Set up: the doctor's account name = the doctor's name on the patient's prescript
   - [ ] doctor-added records;
   - [ ] access by QR;
   - [ ] verification outcome (doctor)
+- [ ] **Doctor notifications:** the patient approves, declines or revokes the doctor's access → the doctor's sidebar **Notifications** badge goes up (within 30 s), the dashboard shows a *"🔔 N new notifications"* bar with the latest ones, and **Mark all read** clears the badge
 - [ ] **The Activity log** lists:
   - [ ] access requested/approved/revoked;
   - [ ] QR created/scanned;

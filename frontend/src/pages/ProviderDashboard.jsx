@@ -9,6 +9,7 @@ import MyRequestsPage from './provider/MyRequestsPage';
 import PatientViewPage from './provider/PatientViewPage';
 import ProviderProfilePage from './provider/ProviderProfilePage';
 import ActivePatientsPage from './provider/ActivePatientsPage';
+import NotificationsPage from './patient/NotificationsPage';
 import ReviewDoctorsPage from './ReviewDoctorsPage';
 import useReviewer from '../hooks/useReviewer';
 
@@ -21,8 +22,11 @@ const NAV_ITEMS = [
   { key: 'patients', label: 'Active patients' },
   { key: 'find', label: 'Find a patient' },
   { key: 'requests', label: 'My requests' },
+  { key: 'notifications', label: 'Notifications' },
   { key: 'profile', label: 'My Profile' },
 ];
+
+const BADGE_POLL_MS = 30000;
 
 export default function ProviderDashboard() {
   const { user, logout } = useAuth();
@@ -34,7 +38,22 @@ export default function ProviderDashboard() {
   const [justAdded, setJustAdded] = useState(null); // result of the last QR scan
   const [qrLinkError, setQrLinkError] = useState('');
   const [patientNotice, setPatientNotice] = useState(null); // shown on the opened profile
+  const [unread, setUnread] = useState(0); // unread notifications (sidebar badge)
   const reviewer = useReviewer();
+
+  const loadUnread = async () => {
+    try {
+      setUnread((await api.getBadges()).unread_notifications || 0);
+    } catch {
+      /* next poll retries */
+    }
+  };
+
+  useEffect(() => {
+    loadUnread();
+    const interval = setInterval(loadUnread, BADGE_POLL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   const openPatient = (patient, { focusConsultation: focus = false, notice = null } = {}) => {
     setSelectedPatient(patient);
@@ -85,7 +104,7 @@ export default function ProviderDashboard() {
         userName={user.full_name}
         roleLabel="Doctor"
         onLogout={logout}
-        badges={{ review: reviewer.pending }}
+        badges={{ review: reviewer.pending, notifications: unread }}
       />
       <main className="main">
         {active === 'dashboard' && (
@@ -95,6 +114,7 @@ export default function ProviderDashboard() {
             justAdded={justAdded}
             onDismissJustAdded={() => setJustAdded(null)}
             qrLinkError={qrLinkError}
+            unreadCount={unread}
           />
         )}
         {active === 'scan' && (
@@ -120,6 +140,12 @@ export default function ProviderDashboard() {
           />
         )}
         {active === 'patients' && <ActivePatientsPage onOpenPatient={openPatient} />}
+        {active === 'notifications' && (
+          <NotificationsPage
+            onAction={loadUnread}
+            subtitle="Updates from your patients (access approved, declined or revoked) and about your verification."
+          />
+        )}
         {active === 'profile' && <ProviderProfilePage />}
         {active === 'review' && reviewer.isReviewer && <ReviewDoctorsPage onChanged={reviewer.refresh} />}
       </main>

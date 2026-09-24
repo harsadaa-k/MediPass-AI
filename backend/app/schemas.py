@@ -148,6 +148,7 @@ class PatientQRCreateIn(BaseModel):
 class PatientQROut(BaseModel):
     id: str
     token: Optional[str] = None  # only returned once, when the code is created
+    short_code: Optional[str] = None  # typeable code (e.g. K7Q4-M9TX), also only returned once
     scope: List[str]
     access_days: int
     created_at: datetime
@@ -159,7 +160,7 @@ class PatientQROut(BaseModel):
 
 
 class PatientQRRedeemIn(BaseModel):
-    code: str  # the scanned text: a full /add-patient/<token> URL or the bare token
+    code: str  # the scanned text: a full /add-patient/<token> URL, the bare token, or the short code
 
 
 class PatientQRRedeemOut(BaseModel):

@@ -205,6 +205,7 @@ export const api = {
   // ---- notifications ----
   getNotifications: () => request('/notifications'),
   markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
   
   // ---- profiles ----
   updateProviderProfile: (data) => request('/auth/profile/provider', { method: 'PUT', body: data }),

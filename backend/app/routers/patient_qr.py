@@ -9,6 +9,9 @@ patient to approve afterwards. Safeguards instead of an approval step:
   * if the doctor already has active access, nothing about that access
     changes -- the doctor is told the patient already exists
   * the code carries a 256-bit random token; only its SHA-256 hash is stored
+  * a short code (8 characters, e.g. K7Q4-M9TX) is shown above the QR for
+    doctors to type in; same rules, also stored only as a hash, and a doctor
+    who keeps typing wrong codes is paused (brute-force guard)
   * single use, and only scannable for a short window (default 15 minutes)
   * limited to the scope and access period the patient picked
   * creating a new code invalidates the patient's previous unused codes
@@ -19,6 +22,9 @@ import hashlib
 import json
 import re
 import secrets
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,6 +42,39 @@ _TOKEN_RE = re.compile(r"(?:/add-patient/)?([A-Za-z0-9_-]{32,})/?$")
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+# Short code: no 0/O, 1/I/L, so it reads out and types without mix-ups.
+# 31^8 (~8.5e11) combinations, live for minutes and single use.
+SHORT_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+SHORT_CODE_LEN = 8
+_SHORT_RE = re.compile(rf"^[{SHORT_CODE_ALPHABET}]{{{SHORT_CODE_LEN}}}$")
+
+# Brute-force guard: wrong codes per doctor within the window.
+MAX_BAD_CODES = 10
+BAD_CODE_WINDOW_S = 15 * 60
+_bad_codes: dict[str, deque] = defaultdict(deque)
+_bad_codes_lock = threading.Lock()
+
+
+def _normalize_short(code: str) -> str:
+    return re.sub(r"[\s-]", "", code).upper()
+
+
+def _short_hash(code: str) -> str:
+    return _hash("short:" + _normalize_short(code))
+
+
+def _format_short(code: str) -> str:
+    return f"{code[:4]}-{code[4:]}"
+
+
+def _recent_bad_codes(provider_id: str) -> deque:
+    q = _bad_codes[provider_id]
+    cutoff = time.monotonic() - BAD_CODE_WINDOW_S
+    while q and q[0] < cutoff:
+        q.popleft()
+    return q
 
 
 def _to_out(db: Session, qr: models.PatientQRCode, token: str | None = None) -> schemas.PatientQROut:
@@ -77,8 +116,19 @@ def create_qr(
     ).update({models.PatientQRCode.revoked: True})
 
     token = secrets.token_urlsafe(32)
+    # A short code no other live code is using, so typing it finds one patient.
+    while True:
+        short = "".join(secrets.choice(SHORT_CODE_ALPHABET) for _ in range(SHORT_CODE_LEN))
+        clash = db.query(models.PatientQRCode).filter(
+            models.PatientQRCode.short_code_hash == _short_hash(short),
+            models.PatientQRCode.used_at.is_(None),
+            models.PatientQRCode.revoked.is_(False),
+            models.PatientQRCode.expires_at > now,
+        ).first()
+        if not clash:
+            break
     qr = models.PatientQRCode(
-        patient_id=patient.id, token_hash=_hash(token), scope=json.dumps(scope),
+        patient_id=patient.id, token_hash=_hash(token), short_code_hash=_short_hash(short), scope=json.dumps(scope),
         access_days=payload.access_days, expires_at=now + timedelta(minutes=payload.valid_minutes),
     )
     db.add(qr)
@@ -87,7 +137,9 @@ def create_qr(
                            target_type="patient_qr", target_id=qr.id))
     db.commit()
     db.refresh(qr)
-    return _to_out(db, qr, token=token)
+    out = _to_out(db, qr, token=token)
+    out.short_code = _format_short(short)
+    return out
 
 
 @router.get("/{qr_id}", response_model=schemas.PatientQROut)
@@ -128,13 +180,30 @@ def redeem_qr(
     db: Session = Depends(get_db),
     provider: models.User = Depends(auth.require_role(models.UserRole.provider)),
 ):
-    """Doctor scanned a patient's QR code: add the patient immediately."""
-    m = _TOKEN_RE.search(payload.code.strip())
+    """Doctor scanned a patient's QR code (or typed its short code): add the patient immediately."""
+    with _bad_codes_lock:
+        if len(_recent_bad_codes(provider.id)) >= MAX_BAD_CODES:
+            raise HTTPException(status_code=429, detail="Too many wrong codes. Wait 15 minutes, or scan the patient's QR code.")
+    code = payload.code.strip()
+    m = _TOKEN_RE.search(code)
     qr = None
     if m:
         qr = db.query(models.PatientQRCode).filter(models.PatientQRCode.token_hash == _hash(m.group(1))).first()
+    elif _SHORT_RE.match(_normalize_short(code)):
+        # An old code may share the hash; prefer the one that's still usable.
+        matches = (
+            db.query(models.PatientQRCode)
+            .filter(models.PatientQRCode.short_code_hash == _short_hash(code))
+            .order_by(models.PatientQRCode.created_at.desc())
+            .all()
+        )
+        now = datetime.utcnow()
+        qr = next((q for q in matches if not q.used_at and not q.revoked and q.expires_at > now),
+                  matches[0] if matches else None)
     if not qr:
-        raise HTTPException(status_code=404, detail="This isn't a valid MediPass patient QR code.")
+        with _bad_codes_lock:
+            _recent_bad_codes(provider.id).append(time.monotonic())
+        raise HTTPException(status_code=404, detail="This isn't a valid MediPass patient code. Check it and try again.")
 
     now = datetime.utcnow()
     if qr.revoked:

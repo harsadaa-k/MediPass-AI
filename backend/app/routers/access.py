@@ -11,6 +11,12 @@ from .doctor_verification import is_verified, require_verified_doctor
 router = APIRouter(prefix="/access-requests", tags=["access"])
 
 
+def _notify_doctor(db: Session, grant: models.AccessGrant, patient: models.User, message: str) -> None:
+    """Tell the doctor what the patient did with their access (the doctor's
+    Notifications page; notifications are per user, whatever the role)."""
+    db.add(models.Notification(patient_id=grant.provider_id, message=f"{patient.full_name} {message}"))
+
+
 def _to_out(db: Session, grant: models.AccessGrant) -> schemas.AccessGrantOut:
     patient = db.query(models.User).filter(models.User.id == grant.patient_id).first()
     provider = db.query(models.User).filter(models.User.id == grant.provider_id).first()
@@ -137,6 +143,13 @@ def respond_to_request(
         patient_id=patient.id, actor_id=patient.id,
         action=f"access_{grant.status.value}", target_type="access_grant", target_id=grant.id,
     ))
+    if payload.approve:
+        shared = ", ".join(payload.scope).replace("_", " ") or "nothing yet"
+        _notify_doctor(db, grant, patient,
+                       f"approved your access request. You can see their {shared} until "
+                       f"{grant.expires_at.strftime('%d %b %Y')}.")
+    else:
+        _notify_doctor(db, grant, patient, "declined your access request.")
     db.commit()
     db.refresh(grant)
     return _to_out(db, grant)
@@ -177,6 +190,7 @@ def revoke_access(
         patient_id=patient.id, actor_id=patient.id,
         action="access_revoked", target_type="access_grant", target_id=grant.id,
     ))
+    _notify_doctor(db, grant, patient, "revoked your access to their records.")
     db.commit()
     db.refresh(grant)
     return _to_out(db, grant)

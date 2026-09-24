@@ -35,10 +35,14 @@ def get_badges(
 ):
     """
     Returns counts for pending notifications like access requests and unverified records.
-    Only applicable to patients.
+    Doctors get only the unread-notifications count.
     """
     if user.role != models.UserRole.patient:
-        return schemas.BadgesOut(pending_access_requests=0, unverified_records=0, unread_notifications=0,
+        # Doctors: only the unread-notifications count applies.
+        unread = db.query(models.Notification).filter(
+            models.Notification.patient_id == user.id, models.Notification.is_read == False  # noqa: E712
+        ).count()
+        return schemas.BadgesOut(pending_access_requests=0, unverified_records=0, unread_notifications=unread,
                                  pending_links=0)
         
     pending_requests = db.query(models.AccessGrant).filter(

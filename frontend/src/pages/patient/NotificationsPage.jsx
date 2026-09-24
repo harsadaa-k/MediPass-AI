@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { parseUtc } from '../../grants';
 
-export default function NotificationsPage({ onAction }) {
+// Shared by patients and doctors (subtitle differs).
+export default function NotificationsPage({ onAction, subtitle = 'Updates from your doctors and system alerts.' }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -36,12 +37,32 @@ export default function NotificationsPage({ onAction }) {
     }
   };
 
+  const markAllRead = async () => {
+    try {
+      await api.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      if (onAction) onAction();
+    } catch (err) {
+      setError(err.detail || 'Could not mark notifications as read.');
+    }
+  };
+
+  const unread = notifications.filter((n) => !n.is_read).length;
+
   return (
     <div>
       <div className="page-header">
         <h1>Notifications</h1>
-        <p>Updates from your doctors and system alerts.</p>
+        <p>{subtitle}</p>
       </div>
+
+      {unread > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <button className="btn btn-secondary btn-sm" onClick={markAllRead}>
+            Mark all read ({unread})
+          </button>
+        </div>
+      )}
 
       {loading && <p className="muted">Loading…</p>}
       {error && <p className="error-text">{error}</p>}

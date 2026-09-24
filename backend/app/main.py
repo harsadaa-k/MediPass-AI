@@ -16,7 +16,7 @@ from .routers import auth, documents, records, timeline, access, consultations, 
 # Dev convenience: create tables on startup. For a real deployment you'd use
 # Alembic migrations instead of create_all.
 Base.metadata.create_all(bind=engine)
-add_missing_columns(["doctor_credentials", "documents"])  # new nullable columns on existing tables
+add_missing_columns(["doctor_credentials", "documents", "patient_qr_codes"])  # new nullable columns on existing tables
 
 # Seed demo accounts for hackathon demos (idempotent — skips if they exist).
 # Their passwords are in the public repo, so a public deployment should set

@@ -4,13 +4,14 @@ import { api } from '../../api';
 import { isActiveGrant, parseUtc } from '../../grants';
 import ActivePatients from './ActivePatients';
 
-export default function ProviderOverview({ onNavigate, onOpenPatient, justAdded, onDismissJustAdded, qrLinkError }) {
+export default function ProviderOverview({ onNavigate, onOpenPatient, justAdded, onDismissJustAdded, qrLinkError, unreadCount = 0 }) {
   const { user } = useAuth();
   const [grants, setGrants] = useState([]);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pickingPatient, setPickingPatient] = useState(false);
   const [verification, setVerification] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -31,9 +32,15 @@ export default function ProviderOverview({ onNavigate, onOpenPatient, justAdded,
     })();
   }, []);
 
+  // On load, and whenever the badge poll sees the unread count change.
+  useEffect(() => {
+    api.getNotifications().then(setNotifications).catch(() => {});
+  }, [unreadCount]);
+
   if (loading) return <p className="muted">Loading dashboard…</p>;
 
   const active = grants.filter((g) => isActiveGrant(g));
+  const latestUnread = notifications.filter((n) => !n.is_read).slice(0, 3);
   const pending = grants.filter((g) => g.status === 'pending');
 
   const openPatient = (patientId, name, focusConsultation = false) =>
@@ -107,6 +114,22 @@ export default function ProviderOverview({ onNavigate, onOpenPatient, justAdded,
         </div>
       )}
       {qrLinkError && <p className="error-text">{qrLinkError}</p>}
+
+      {unreadCount > 0 && (
+        <div className="notice-bar" role="status">
+          <div style={{ minWidth: 0 }}>
+            <strong>🔔 {unreadCount} new notification{unreadCount === 1 ? '' : 's'}</strong>
+            {latestUnread.map((n) => (
+              <div key={n.id} className="notice-bar-item">
+                {n.message} <span className="muted">· {parseUtc(n.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={() => onNavigate('notifications')}>
+            View all
+          </button>
+        </div>
+      )}
 
       {verification && verification.status !== 'verified' && (
         <div className="verify-nudge" role="status">

@@ -30,8 +30,10 @@ Good to know:
 
 1. **Dashboard → 📷 Scan Patient QR** (or **Scan patient QR** in the sidebar).
 2. **Start camera** and point it at the patient's code. If the camera isn't
-   available, use **Upload a photo of the code**, or paste the code/link the
-   patient reads out under *"Doctor's camera not working?"*.
+   available, use **Upload a photo of the code**, or type the short code
+   shown above the patient's QR (e.g. `K7Q4-M9TX`) under *"Or type the
+   patient's code"*. Case, spaces and the dash don't matter. The QR link
+   itself can be pasted there too.
 3. You're taken back to the dashboard with a green
    *"✓ <patient> added to your patients"* banner, and the patient is
    highlighted under **Active patients**. Use **Open patient** to start.
@@ -53,6 +55,7 @@ patient is added straight after.
 | Measure | Detail |
 |---|---|
 | Unguessable code | 256-bit random token (`secrets.token_urlsafe(32)`). |
+| Short typed code | 8 characters from 31 (no 0/O/1/I/L), ~8.5 × 10¹¹ combinations; same single-use / expiry / cancel rules as the QR, stored only as a hash, never reused by two live codes. A doctor who enters 10 wrong codes within 15 minutes is paused for the rest of that window. |
 | Not stored in the clear | Only its SHA-256 hash is in the database, so a copied database can't be used to replay codes. |
 | Single use, short-lived | Default 15 minutes, maximum 24 hours; marked used on first scan. |
 | One live code per patient | A new code cancels older unused ones. |

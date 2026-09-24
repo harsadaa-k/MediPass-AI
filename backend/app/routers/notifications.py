@@ -22,6 +22,21 @@ def list_notifications(
     )
 
 
+@router.post("/read-all")
+def mark_all_read(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(auth.get_current_user),
+):
+    """Mark every unread notification of the current user as read."""
+    count = (
+        db.query(models.Notification)
+        .filter(models.Notification.patient_id == user.id, models.Notification.is_read.is_(False))
+        .update({models.Notification.is_read: True})
+    )
+    db.commit()
+    return {"marked": count}
+
+
 @router.post("/{notification_id}/read")
 def mark_notification_read(
     notification_id: str,
