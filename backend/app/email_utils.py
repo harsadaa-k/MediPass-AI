@@ -12,6 +12,8 @@ deployed app sends links to its real address.
 import os
 import smtplib
 from datetime import datetime
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, formatdate, make_msgid
@@ -37,7 +39,8 @@ def frontend_url() -> str:
     return os.environ.get("MEDIPASS_FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 
-def send_email(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
+def send_email(to_email: str, subject: str, html_body: str, text_body: str = "", attachments=None) -> bool:
+    """attachments: optional list of (file_name, bytes, "type/subtype")."""
     smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(os.environ.get("SMTP_PORT", 587))
     smtp_username = os.environ.get("SMTP_USERNAME")
@@ -48,17 +51,31 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: str = "")
         print(f"TO: {to_email}")
         print(f"SUBJECT: {subject}")
         print(f"BODY:\n{text_body or html_body}")
+        for name, _, _ in attachments or []:
+            print(f"ATTACHMENT: {name}")
         return True  # dev mode: the console is the mailbox
 
-    msg = MIMEMultipart("alternative")
+    body = MIMEMultipart("alternative")
+    if text_body:
+        body.attach(MIMEText(text_body, "plain", "utf-8"))
+    body.attach(MIMEText(html_body, "html", "utf-8"))
+    if attachments:
+        msg = MIMEMultipart("mixed")
+        msg.attach(body)
+        for name, content, mime in attachments:
+            main, _, sub = (mime or "application/octet-stream").partition("/")
+            part = MIMEBase(main, sub or "octet-stream")
+            part.set_payload(content)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=name)
+            msg.attach(part)
+    else:
+        msg = body
     msg["Subject"] = subject
     msg["From"] = formataddr((os.environ.get("SMTP_FROM_NAME", "MediPass"), smtp_username))
     msg["To"] = to_email
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=smtp_username.split("@")[-1])
-    if text_body:
-        msg.attach(MIMEText(text_body, "plain", "utf-8"))
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
         with smtplib.SMTP(smtp_server, smtp_port, timeout=20) as server:

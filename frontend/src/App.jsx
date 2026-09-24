@@ -10,6 +10,7 @@ const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 const PatientDashboard = lazy(() => import('./pages/PatientDashboard'));
 const ProviderDashboard = lazy(() => import('./pages/ProviderDashboard'));
 const AddPatientLink = lazy(() => import('./pages/provider/AddPatientLink'));
+const ReviewDecisionPage = lazy(() => import('./pages/ReviewDecisionPage'));
 
 function Loading() {
   return (
@@ -30,6 +31,7 @@ function Root() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/add-patient/:token" element={<AddPatientLink />} />
+      <Route path="/review-decision" element={<ReviewDecisionPage />} />
       <Route
         path="/*"
         element={

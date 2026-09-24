@@ -68,6 +68,12 @@ project folder).
 - [ ] **✗ Reject** without a reason → *"Write the reason…"*; with a reason → moves to *Not approved*
 - [ ] **✓ Approve** → moves to *Verified*, with *"Last decision … by <you>"*; the doctor sees **✓ Verified doctor** and their document names you
 - [ ] **Your own doctor account** on the list → *"another reviewer has to decide"*
+- [ ] **Review by email:** when a doctor submits their details, each reviewer address gets *"MediPass: verify Dr. …"* (check Spam), with:
+  - [ ] the details;
+  - [ ] the certificate attached;
+  - [ ] Approve / Reject buttons
+- [ ] **Approve** in the email → a confirmation page opens without logging in → **Confirm** → *"✓ Doctor approved"*; the doctor is verified
+- [ ] **The same link again** → *"Already decided …"*; **Reject** needs a reason; after the doctor changes their details, the old email's link says *"use the newer email"*
 
 ## 3. Doctor gets access to a patient
 - [ ] **Patient → My QR code**:

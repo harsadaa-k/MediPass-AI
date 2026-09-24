@@ -18,7 +18,7 @@ import re
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -152,6 +152,7 @@ async def submit_verification(
     education: Optional[str] = Form(None),      # JSON list of {degree, institution, year}
     affiliations: Optional[str] = Form(None),   # JSON list of names
     certificate: Optional[UploadFile] = File(None),
+    background: BackgroundTasks = None,
     db: Session = Depends(get_db),
     provider: models.User = Depends(auth.require_role(models.UserRole.provider)),
 ):
@@ -210,7 +211,25 @@ async def submit_verification(
     cred.reviewer = None
     cred.review_note = None
     db.commit()
+    # Email the reviewers (details, certificate, Approve / Reject links)
+    # after the response, so the doctor isn't kept waiting on SMTP.
+    if background is not None:
+        background.add_task(_email_reviewers, provider.id)
     return _out(db, provider)
+
+
+def _email_reviewers(provider_id: str) -> None:
+    from ..database import SessionLocal
+    from .reviewer import notify_reviewers
+    db = SessionLocal()
+    try:
+        doctor = db.query(models.User).filter(models.User.id == provider_id).first()
+        if doctor:
+            notify_reviewers(db, doctor)
+    except Exception as e:  # never break the submission over an email
+        print(f"Reviewer email failed: {type(e).__name__}: {e}")
+    finally:
+        db.close()
 
 
 @router.get("/certificate")

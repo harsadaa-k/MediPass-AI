@@ -1114,6 +1114,81 @@ r = client.post(f"/reviewer/doctors/{kumar_id}/decision", headers=provider_heade
 check(r.status_code == 403, "a reviewer can't decide on their own verification")
 os.environ.pop("MEDIPASS_REVIEWER_EMAILS", None)
 
+# ---------------------------------------------------------------- 13k. review doctors by email (no reviewer account)
+import re as _re  # noqa: E402
+
+os.environ["MEDIPASS_REVIEWER_EMAILS"] = "boss@example.com, maildoc@example.com"
+outbox = []
+
+
+def _capture(to, subject, html, text="", attachments=None):
+    outbox.append({"to": to, "subject": subject, "html": html, "text": text, "attachments": attachments or []})
+    return True
+
+
+r = client.post("/auth/register", json={"email": "maildoc@example.com", "password": "pw12345",
+                                        "full_name": "Dr. Mail Review", "role": "provider"})
+maildoc_id = r.json()["id"]
+verify_email("maildoc@example.com")
+maildoc_headers = {"Authorization": "Bearer " + client.post(
+    "/auth/login", data={"username": "maildoc@example.com", "password": "pw12345"}).json()["access_token"]}
+with mock.patch.object(email_utils, "send_email", side_effect=_capture):
+    r = client.post("/doctor-verification", headers=maildoc_headers, data={**form, "registration_number": "KMC 55555"},
+                    files={"certificate": ("cert.pdf", cert, "application/pdf")})
+check(r.status_code == 200 and r.json()["status"] == "pending", "doctor submits (email flow)")
+check([m["to"] for m in outbox] == ["boss@example.com"],
+      f"every reviewer is emailed, but never the doctor themselves ({[m['to'] for m in outbox]})")
+mail = outbox[0]
+check("Dr. Mail Review" in mail["subject"] and "KMC 55555" in mail["subject"], "subject names the doctor and registration")
+check(mail["attachments"] and mail["attachments"][0][0] == "cert.pdf" and mail["attachments"][0][1] == cert,
+      "the certificate is attached")
+check("KMC 55555" in mail["text"] and "Automatic checks" in mail["text"], "the email lists the details")
+m = _re.search(r"/review-decision\?token=([^&\s]+)&action=approve", mail["text"])
+check(m and "&action=reject" in mail["text"] and "&action=approve" in mail["html"], "Approve and Reject links in the email")
+token = m.group(1)
+
+d = client.get(f"/reviewer/email/{token}").json()
+check(d["doctor"]["registration_number"] == "KMC 55555" and d["reviewer_email"] == "boss@example.com"
+      and not d["stale"] and not d["decided"], "the link opens the request without logging in")
+check(client.get(f"/reviewer/email/{token}/certificate").content == cert, "the certificate opens from the link")
+check(client.get("/reviewer/email/not-a-real-token").status_code == 400, "a made-up link is rejected")
+check(client.get(f"/reviewer/email/{token[:-3]}abc").status_code == 400, "a tampered link is rejected")
+check(client.post(f"/reviewer/email/{token}/decision", json={"decision": "reject", "note": "x"}).status_code == 400,
+      "rejecting by email needs a reason")
+check(client.get("/doctor-verification/me", headers=maildoc_headers).json()["status"] == "pending",
+      "opening the link changes nothing by itself")
+
+# the doctor changes a detail -> new email; the old link can't be used any more
+outbox.clear()
+with mock.patch.object(email_utils, "send_email", side_effect=_capture):
+    client.post("/doctor-verification", headers=maildoc_headers, data={**form, "registration_number": "KMC 55556"})
+check(len(outbox) == 1, "changed details send a new email")
+r = client.post(f"/reviewer/email/{token}/decision", json={"decision": "approve"})
+check(r.status_code == 409 and "changed their details" in r.json()["detail"], "the old link stops working after a change")
+check(client.get(f"/reviewer/email/{token}").json()["stale"] is True, "the old link shows it's out of date")
+token = _re.search(r"token=([^&\s]+)&action=approve", outbox[0]["text"]).group(1)
+
+r = client.post(f"/reviewer/email/{token}/decision", json={"decision": "approve", "note": "Checked NMC register"})
+check(r.status_code == 200 and r.json()["status"] == "verified" and r.json()["reviewer"] == "boss@example.com",
+      "approving from the email link verifies the doctor, recorded under the reviewer's email")
+check(client.get("/doctor-verification/me", headers=maildoc_headers).json()["status"] == "verified", "doctor is verified")
+r = client.post(f"/reviewer/email/{token}/decision", json={"decision": "reject", "note": "changed my mind"})
+check(r.status_code == 409 and "Already decided" in r.json()["detail"], "a link can only be used once")
+db = SessionLocal()
+try:
+    audits = [a.action for a in db.query(models.AuditLog).filter(models.AuditLog.patient_id == maildoc_id)]
+finally:
+    db.close()
+check("doctor_verification_approved_via_email" in audits, "email decisions are audited")
+
+os.environ["MEDIPASS_REVIEWER_EMAILS"] = "someone-else@example.com"
+check(client.get(f"/reviewer/email/{token}").status_code == 403, "links stop working if the address is removed as reviewer")
+os.environ.pop("MEDIPASS_REVIEWER_EMAILS", None)
+with mock.patch.object(email_utils, "send_email", side_effect=_capture):
+    outbox.clear()
+    client.post("/doctor-verification", headers=maildoc_headers, data={**form, "registration_number": "KMC 55557"})
+check(outbox == [], "no reviewers configured -> no emails")
+
 # ---------------------------------------------------------------- 14. revoke
 # ---------------------------------------------------------------- imaging (demo patient)
 def unverified_for(doc_id):

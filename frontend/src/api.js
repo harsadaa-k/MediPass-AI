@@ -128,6 +128,16 @@ export const api = {
     return res.blob();
   },
 
+  // review by email link (no login; the signed token is the permission)
+  emailReviewDetails: (token) => request(`/reviewer/email/${encodeURIComponent(token)}`, { auth: false }),
+  emailReviewDecide: (token, decision, note) =>
+    request(`/reviewer/email/${encodeURIComponent(token)}/decision`, { method: 'POST', body: { decision, note }, auth: false }),
+  emailReviewCertificateBlob: async (token) => {
+    const res = await fetch(`${API_BASE}/reviewer/email/${encodeURIComponent(token)}/certificate`);
+    if (!res.ok) throw new ApiError(res.status, 'Could not open the certificate.');
+    return res.blob();
+  },
+
   // ---- records ----
   listUnverified: () => request('/records/unverified'),
   listBodyParts: () => request('/records/body-parts'),

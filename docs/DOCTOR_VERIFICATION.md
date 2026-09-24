@@ -86,6 +86,34 @@ many doctors are waiting.
     `_rejected`);
   - a reviewer can't decide on their own account.
 
+### Review by email (no MediPass account needed)
+
+Whenever a doctor submits their details, or changes them, every address in
+`MEDIPASS_REVIEWER_EMAILS` gets an email. It's sent in the background, so the
+doctor isn't kept waiting, and the doctor's own address is skipped. The email
+contains:
+- the subject *"MediPass: verify Dr. X (KMC 12345)"*;
+- the doctor's details and the automatic checks;
+- a link to the NMC register;
+- the **certificate attached**;
+- **Approve** and **Reject** buttons.
+
+Each button opens a confirmation page (`/review-decision` on the frontend):
+- The page shows the details, **Open certificate**, and a note/reason box.
+  Nothing changes until you press **Confirm**, so mail scanners that open
+  links can't approve anyone.
+- The links are signed, tied to that exact submission, and expire after 14
+  days.
+- They stop working once the request is decided (*"Already decided …"*), if
+  the doctor changes their details (*"use the newer email"*), or if the
+  address is removed from the reviewer list.
+- The decision is recorded under the reviewer's email (or *"Name (email)"* if
+  they also have an account), the doctor is notified, and it's audited as
+  `doctor_verification_approved_via_email` / `_rejected_via_email`.
+
+Emails are sent with the backend's SMTP settings; they may land in Spam until
+marked *Not spam*.
+
 API (reviewers only, otherwise 403): `GET /reviewer/me`,
 `GET /reviewer/doctors?status=pending|verified|rejected|not_submitted|all`,
 `GET /reviewer/doctors/{id}/certificate`,
