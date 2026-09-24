@@ -54,6 +54,7 @@ feature with expected results, using the sample documents in
 | Patient can fill in / correct a prescription's doctor and hospital (re-runs linking) | ✅ |
 | Patient & provider dashboards, audit log | ✅ |
 | Deployed on Railway (backend + frontend, no Docker): [app](https://medipass-frontend-production.up.railway.app) · [API health](https://medipass-ai-production.up.railway.app/health) — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | ✅ |
+| Full manual test checklist (every feature, live or local) — see [`docs/TEST_CHECKLIST.md`](docs/TEST_CHECKLIST.md) | ✅ |
 | Hospitals/labs as roles, ABDM interoperability | Out of scope (see `docs/REQUIREMENTS.md` §7) |
 
 ## Verifying it works
