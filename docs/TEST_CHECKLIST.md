@@ -22,6 +22,12 @@ project folder).
 ## 0. Deployment health
 - [ ] `https://medipass-ai-production.up.railway.app/health` shows `{"status":"ok"}`
 - [ ] The frontend link opens the login page; `/login` and `/verify-email` don't 404
+- [ ] **Intro screen:** open the main link in a new tab:
+  - [ ] the MediPass intro plays (logo, tagline, three feature lines, progress bar) for about 5 seconds, then the login page opens;
+  - [ ] **Skip →** goes to the login page at once;
+  - [ ] refreshing the tab doesn't replay it; a new tab does;
+  - [ ] already signed in → the intro, then your dashboard;
+  - [ ] email, QR and review links open their page directly, with no intro
 - [ ] Railway shows both services **Online**; the backend has the volume `medipass-ai-volume`
 - [ ] **Persistence:** create an account, redeploy the backend (Deployments → ⋮ → Redeploy), log in again → the account is still there
 
@@ -80,9 +86,13 @@ project folder).
   - [ ] choose what to share and for how long → a QR code appears with a countdown;
   - [ ] the doctor clicks **Scan patient QR** and scans it → *"✓ added to your patients"*
   - [ ] a short code (e.g. `K7Q4-M9TX`) shows above the QR; the doctor types it under **Or type the patient's code** → added the same way; the same code again → *"already been used"*
+  - [ ] lower case, spaces or no dash (`k7q4 m9tx`) still work; a made-up code → *"isn't a valid MediPass patient code"*;
+  - [ ] a cancelled or expired code is rejected;
+  - [ ] 10 wrong codes within 15 minutes → *"Too many wrong codes. Wait 15 minutes…"*
 - [ ] **Scanning the same patient again** → "already your patient" and their profile opens
 - [ ] **Request access** (doctor → Find a patient by email):
   - [ ] the patient sees it in **Access requests**;
+  - [ ] the **✨ AI Sharing Recommendation** names the doctor's real specialty and suggests scopes (e.g. a psychiatrist → medications, diagnoses, labs), even if the doctor typed their name in the Specialty field; **Select Recommended** ticks those scopes;
   - [ ] the patient approves with limited sharing (e.g. medications only) → the doctor sees only those record types
 - [ ] **Patient's Access requests:**
   - [ ] shows *✓ Verified doctor* and the hospital;
@@ -106,6 +116,7 @@ project folder).
   - [ ] the title is *"X-ray of Chest"* (etc.);
   - [ ] a one-line description (*"Chest radiograph (X-ray) showing the lungs…"*), with no long garbage text;
   - [ ] you must pick or confirm the **body part** before confirming
+- [ ] **Prescription photo:** its medicines, diagnoses and advice/consultation entries **don't** ask for a body part; each shows **Confirm as-is** and confirms without renaming the record
 - [ ] (Optional) **DICOM `.dcm`** → the body part is taken from the file, and the date is the study date
 - [ ] **Upload the identical file again** → *"You already uploaded this exact file… on …"* with **View source** / **Upload anyway**
 - [ ] **Upload anyway**, or a different photo of the same prescription → repeated entries show *"⚠ Looks like a duplicate of …"* with **Remove duplicate**
@@ -158,10 +169,11 @@ project folder).
 
 ## 7. Consultation ↔ prescription linking
 Set up: the doctor's account name = the doctor's name on the patient's prescription (e.g. *Abhijna Chattopadhyay*); the patient has shared **medications**.
-- [ ] **The doctor adds a consultation note** dated on the prescription's date that mentions its medicines → **🔗 Related documents** shows:
+- [ ] **The doctor adds a consultation note** dated on the prescription's date that mentions its medicines → the note's **🔗 Related documents** shows:
   - [ ] `L-XXXXXX`;
-  - [ ] the prescription with its medicines, doses and courses;
+  - [ ] the prescription line (doctor, hospital, date, medicine names), without repeating the medicine list;
   - [ ] *why* it matched;
+  - [ ] **Show on timeline** and **View source**;
   - [ ] *⏳ Awaiting the patient's confirmation*
 - [ ] **Patient → Verify records → Confirm document links (1)** shows:
   - [ ] the doctor's consultation (*🩺 Consultation by Dr. …*);
@@ -169,7 +181,8 @@ Set up: the doctor's account name = the doctor's name on the patient's prescript
 - [ ] **✓ Yes** (confirm the "final" prompt):
   - [ ] both sides show *✓ Confirmed by the patient … final*;
   - [ ] the doctor has no **Change link** option
-- [ ] **The prescription card** shows **🔗 Linked consultation** with the doctor's full note (title, text, specialty, hospital)
+- [ ] **The prescription's Medicines card** keeps its normal format, and the doctor's consultation appears as an extra entry at the bottom (*🩺 Consultation · date · by Dr. …*, title, notes, follow-up, `L-XXXXXX` and status, **Go to note**)
+  - [ ] it sits under the **Medicines** card, not the Diagnosis card, even when the Diagnosis card comes first
 - [ ] **Show on timeline** / **Go to note** scroll to and highlight the other card, even with a type filter on
 - [ ] **Reject** a proposed link → *unmatched*; it's not proposed again
 - [ ] **Prescription with no doctor name:**
@@ -187,6 +200,7 @@ Set up: the doctor's account name = the doctor's name on the patient's prescript
   - [ ] access by QR;
   - [ ] verification outcome (doctor)
 - [ ] **Doctor notifications:** the patient approves, declines or revokes the doctor's access → the doctor's sidebar **Notifications** badge goes up (within 30 s), the dashboard shows a *"🔔 N new notifications"* bar with the latest ones, and **Mark all read** clears the badge
+- [ ] **Patient notifications:** **Mark all read** clears the patient's badge too; a doctor's notifications never show in the patient's list
 - [ ] **The Activity log** lists:
   - [ ] access requested/approved/revoked;
   - [ ] QR created/scanned;
@@ -197,6 +211,15 @@ Set up: the doctor's account name = the doctor's name on the patient's prescript
 
 ## 9. Layout and devices
 - [ ] **Phone** (or a narrow browser window): no sideways scrolling on any page; dates stack above the content; Sign out is reachable
+- [ ] **Phone top bar:**
+  - [ ] *MediPass* and **Sign out** on one line;
+  - [ ] the menu is one row you can swipe sideways and stays pinned while you scroll;
+  - [ ] the current page's button stays in view, with badges (e.g. Verify records) on the buttons
+- [ ] **Phone navigation:** every page opens at its top, including **View patient** from Active patients; **Add Consultation** still jumps to the note form
+- [ ] **Phone dashboards:** the number cards sit two to a row (patient and doctor)
+- [ ] **Doctor's My Profile on a phone:** the education rows and the whole form fit the screen
+- [ ] **Intro screen on a phone:** fits the screen, the text is readable, **Skip** is easy to tap
+- [ ] **Laptop:** the sidebar is the usual left column (the phone changes don't apply)
 - [ ] **Tablet width:** cards and the Active patients grid lay out cleanly
 - [ ] Browser console (F12) → no red errors while using the pages
 
@@ -218,5 +241,5 @@ Set up: the doctor's account name = the doctor's name on the patient's prescript
 - [ ] `cat /data/logs/email.log` shows every email attempt
 
 ## 13. Automated tests (local)
-- [ ] In `backend/`: `./venv/Scripts/python.exe test_smoke.py` → **ALL CHECKS PASSED** (268 checks, no real emails sent, no real AI calls)
+- [ ] In `backend/`: `./venv/Scripts/python.exe test_smoke.py` → **ALL CHECKS PASSED** (337 checks, no real emails sent, no real AI calls)
 - [ ] In `frontend/`: `npm run build` succeeds; `npm run lint` shows no errors
