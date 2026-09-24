@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Prepared for:** Global Innovation Hackathon 2026 — Build for a Better Future (Bharat Academix)
-**Team:** Null Hypothesis
+**Team:** srijith11.2006 — Srijith S (Team Leader), Harsada K
 
 ---
 

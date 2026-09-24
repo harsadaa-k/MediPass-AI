@@ -6,7 +6,9 @@
 > only with **verified doctors**, only the parts they need, for only as long as
 > they choose.
 
-**Global Innovation Hackathon 2026 — Build for a Better Future (Bharat Academix)** · Team **Null Hypothesis**
+**Global Innovation Hackathon 2026 — Build for a Better Future (Bharat Academix)**
+
+**Team:** `srijith11.2006` — **Srijith S** (Team Leader) · **Harsada K**
 
 | | |
 |---|---|
@@ -255,7 +257,16 @@ to use the live API.
 - Medicine reminders from the extracted treatment courses; drug-interaction alerts for doctors.
 - PostgreSQL, encryption at rest and automated verification against the NMC register.
 
-## 10. Documentation
+## 10. Team & acknowledgements
+
+| Member | Role |
+|---|---|
+| **Srijith S** | Team Leader |
+| **Harsada K** | Team Member |
+
+**AI assistance disclosure:** parts of this project's code, tests and documentation were written with the help of an AI coding assistant (Claude by Anthropic). The team defined the idea, requirements and features, directed and reviewed the work, and tested the app end to end. Separately, MediPass itself uses Google Gemini at runtime for document extraction, sharing recommendations, voice-note structuring and clinical summaries.
+
+## 11. Documentation
 
 | Document | Contents |
 |---|---|
