@@ -911,10 +911,161 @@ button {
 
 .education-row { display: grid; grid-template-columns: 1fr 1.4fr 90px auto; gap: 0.5rem; margin-bottom: 0.5rem; }
 @media (max-width: 600px) { .education-row { grid-template-columns: 1fr 1fr; } }
+/* a fieldset and grid inputs won't shrink below their content by default: let them fit a phone */
+fieldset.field, .education-row > * { min-width: 0; }
 
 @media print {
   .sidebar, .no-print { display: none !important; }
   .main { padding: 0; max-width: none; }
   body { background: white; }
   .verif-doc { border: none; padding: 0; max-width: none; }
+}
+
+/* ---------- intro screen (main link, 5 s before login) ---------- */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  overflow: hidden auto;
+  color: #fff;
+  background: linear-gradient(145deg, var(--deepblue) 0%, #12507a 55%, var(--medteal) 100%);
+}
+
+.splash-glow {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  max-width: 120vw;
+  max-height: 120vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 65%);
+  animation: splash-breathe 3s ease-in-out infinite;
+}
+
+.splash-content {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.splash-logo {
+  animation: splash-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+.splash-shield {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.splash-pulse {
+  fill: none;
+  stroke: #7ee0d6;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 90;
+  stroke-dashoffset: 90;
+  animation: splash-draw 1.1s 0.5s ease-out forwards;
+}
+
+.splash-title {
+  margin: 0.6rem 0 0.2rem;
+  font-size: clamp(2.1rem, 9vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  animation: splash-rise 0.6s 0.35s ease-out both;
+}
+
+.splash-tagline {
+  margin: 0 0 1.4rem;
+  font-size: 1.02rem;
+  color: rgba(255, 255, 255, 0.85);
+  animation: splash-rise 0.6s 0.6s ease-out both;
+}
+
+.splash-features {
+  list-style: none;
+  margin: 0 0 1.6rem;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.splash-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-align: left;
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.93rem;
+  line-height: 1.35;
+  animation: splash-rise 0.5s ease-out both;
+}
+
+.splash-feature-icon { font-size: 1.2rem; flex-shrink: 0; }
+
+.splash-progress {
+  width: 180px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.splash-progress span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: #7ee0d6;
+  transform-origin: left;
+  animation: splash-fill linear both;
+}
+
+.splash-skip {
+  margin-top: 1rem;
+  min-height: 44px;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.splash-skip:hover, .splash-skip:focus-visible { background: rgba(255, 255, 255, 0.15); outline: none; }
+
+@keyframes splash-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes splash-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes splash-draw { to { stroke-dashoffset: 0; } }
+@keyframes splash-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes splash-breathe { 0%, 100% { transform: scale(0.9); opacity: 0.7; } 50% { transform: scale(1.05); opacity: 1; } }
+
+@media (max-width: 420px) {
+  .splash-logo svg { width: 68px; height: 68px; }
+  .splash-tagline { font-size: 0.95rem; margin-bottom: 1.1rem; }
+  .splash-features li { font-size: 0.88rem; padding: 0.55rem 0.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash *, .splash-glow { animation-duration: 0.01ms !important; animation-delay: 0s !important; }
+  .splash-pulse { stroke-dashoffset: 0; }
+  .splash-progress span { animation-duration: 5s !important; }
 }

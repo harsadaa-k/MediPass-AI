@@ -71,7 +71,7 @@ export default function ProviderOverview({ onNavigate, onOpenPatient, justAdded,
         <p>Your doctor dashboard at a glance.</p>
       </div>
 
-      <div style={{
+      <div className="stat-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
         gap: '1rem',

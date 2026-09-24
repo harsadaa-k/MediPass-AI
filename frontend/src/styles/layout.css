@@ -462,16 +462,43 @@
   background: var(--medteal-100);
 }
 
+/* phones: a compact top bar -- brand and Sign out on one line, the menu as a
+   single swipeable row pinned to the top, so the page content starts at once */
 @media (max-width: 720px) {
   .app-shell { flex-direction: column; }
-  .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 0.9rem 1rem;
-             position: static; height: auto; }
+  .sidebar {
+    width: 100%; height: auto; overflow: visible;
+    display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 0.45rem;
+    padding: 0.7rem 0.9rem 0.55rem;
+    position: sticky; top: 0; z-index: 30;
+    box-shadow: 0 2px 8px rgba(10, 30, 60, 0.25);
+  }
+  .sidebar-brand { grid-column: 1; grid-row: 1; margin: 0; }
   .sidebar-role { display: none; }
-  .sidebar-nav { flex-direction: row; flex-wrap: wrap; margin-left: auto; }
-  /* keep Sign out on small screens too */
-  .sidebar-footer { margin: 0 0 0 0.8rem; padding: 0; border: none; }
+  .sidebar-footer { grid-column: 2; grid-row: 1; margin: 0; padding: 0; border: none; }
   .sidebar-footer .user-name { display: none; }
-  .main { padding: 1.4rem; }
+  .sidebar-signout { min-height: 36px; padding: 0 0.2rem; }
+  .sidebar-nav {
+    grid-column: 1 / -1; grid-row: 2;
+    flex-direction: row; flex-wrap: nowrap; gap: 0.35rem;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    margin: 0 -0.9rem; padding: 0 0.9rem 0.1rem;
+  }
+  .sidebar-nav::-webkit-scrollbar { display: none; }
+  .sidebar-nav button {
+    flex-shrink: 0; white-space: nowrap; min-height: 38px;
+    padding: 0.45em 0.8em; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .sidebar-nav button span + span { margin-left: 0.4rem; }
+  .main { padding: 1.2rem 1rem 2rem; }
+}
+
+/* phones: dashboard number cards two to a row instead of one tall column */
+@media (max-width: 560px) {
+  .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 0.6rem !important; }
+  .stat-grid > * { padding: 0.9rem 0.5rem !important; }
+  .stat-grid > * > div:first-child { font-size: 1.6rem !important; }
 }
 
 /* ---------- timeline sort / filter ---------- */

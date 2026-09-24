@@ -77,7 +77,7 @@ export default function PatientOverview({ onNavigate }) {
         <p>Here's a quick snapshot of your MediPass health record.</p>
       </div>
 
-      <div style={{
+      <div className="stat-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
         gap: '1rem',
