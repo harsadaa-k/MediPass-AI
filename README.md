@@ -53,7 +53,7 @@ feature with expected results, using the sample documents in
 | Duplicate protection: same file blocked at upload, repeated entries flagged in Verify records, cleanup script — see [`docs/DUPLICATES.md`](docs/DUPLICATES.md) | ✅ |
 | Patient can fill in / correct a prescription's doctor and hospital (re-runs linking) | ✅ |
 | Patient & provider dashboards, audit log | ✅ |
-| Deployment: backend on Railway, frontend on Vercel, no Docker — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | ✅ |
+| Deployed on Railway (backend + frontend, no Docker): [app](https://medipass-frontend-production.up.railway.app) · [API health](https://medipass-ai-production.up.railway.app/health) — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | ✅ |
 | Hospitals/labs as roles, ABDM interoperability | Out of scope (see `docs/REQUIREMENTS.md` §7) |
 
 ## Verifying it works
