@@ -1189,6 +1189,43 @@ with mock.patch.object(email_utils, "send_email", side_effect=_capture):
     client.post("/doctor-verification", headers=maildoc_headers, data={**form, "registration_number": "KMC 55557"})
 check(outbox == [], "no reviewers configured -> no emails")
 
+# ---------------------------------------------------------------- 13l. email over Brevo's HTTPS API (hosts that block SMTP)
+import base64 as _b64  # noqa: E402
+import httpx as _httpx  # noqa: E402
+
+calls = []
+
+
+def _fake_post(url, json=None, headers=None, timeout=None):
+    calls.append({"url": url, "json": json, "headers": headers})
+    return mock.Mock(status_code=201, text='{"messageId":"x"}')
+
+
+os.environ.update(BREVO_API_KEY="test-brevo-key", MEDIPASS_EMAIL_FROM="sender@example.com")
+with mock.patch.object(_httpx, "post", side_effect=_fake_post), mock.patch("smtplib.SMTP") as smtp:
+    ok = email_utils.send_email("someone@example.com", "Subject here", "<b>Hi</b>", "Hi",
+                                [("cert.pdf", b"%PDF-1.4", "application/pdf")])
+    check(ok and not smtp.called, "with BREVO_API_KEY, email goes over HTTPS, not SMTP")
+body = calls[0]["json"]
+check(calls[0]["url"] == "https://api.brevo.com/v3/smtp/email" and calls[0]["headers"]["api-key"] == "test-brevo-key",
+      "calls Brevo's send endpoint with the API key")
+check(body["sender"] == {"name": "MediPass", "email": "sender@example.com"} and body["to"] == [{"email": "someone@example.com"}]
+      and body["htmlContent"] == "<b>Hi</b>" and body["textContent"] == "Hi", "sender, recipient and both bodies are sent")
+check(body["attachment"] == [{"name": "cert.pdf", "content": _b64.b64encode(b"%PDF-1.4").decode()}],
+      "attachments are base64-encoded for Brevo")
+with mock.patch.object(_httpx, "post", return_value=mock.Mock(status_code=401, text="Key not found")):
+    check(email_utils.send_email("someone@example.com", "S", "<b>x</b>") is False, "a Brevo error is reported as not sent")
+with mock.patch.object(_httpx, "post", side_effect=_httpx.ConnectError("down")):
+    check(email_utils.send_email("someone@example.com", "S", "<b>x</b>") is False, "a network failure is reported as not sent")
+with mock.patch.object(_httpx, "post", side_effect=_fake_post):
+    calls.clear()
+    r = client.post("/auth/register", json={"email": "viabrevo@example.com", "password": "pw12345",
+                                            "full_name": "Via Brevo", "role": "patient"})
+    check(r.status_code == 201 and r.json()["verification_email_sent"] is True and calls
+          and "/verify-email?token=" in calls[0]["json"]["textContent"], "sign-up verification email goes out through Brevo")
+for k in ("BREVO_API_KEY", "MEDIPASS_EMAIL_FROM"):
+    os.environ.pop(k, None)
+
 # ---------------------------------------------------------------- 14. revoke
 # ---------------------------------------------------------------- imaging (demo patient)
 def unverified_for(doc_id):

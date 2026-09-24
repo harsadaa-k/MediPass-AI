@@ -1,5 +1,6 @@
 """
-Outgoing email (verification and password-reset links) over SMTP.
+Outgoing email (verification, password-reset and doctor-review links), over
+Brevo's HTTPS API when BREVO_API_KEY is set, otherwise SMTP.
 
 send_email() returns True/False instead of swallowing errors, so callers can
 tell the user when a link couldn't be sent (and offer "Resend"). Messages
@@ -39,8 +40,51 @@ def frontend_url() -> str:
     return os.environ.get("MEDIPASS_FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 
+BREVO_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+def _send_via_brevo(api_key: str, to_email: str, subject: str, html_body: str, text_body: str, attachments) -> bool:
+    """
+    Brevo's HTTPS API. Used when BREVO_API_KEY is set -- needed on hosts that
+    block outgoing SMTP (Railway's trial/hobby plans block ports 25/465/587).
+    The sender address (MEDIPASS_EMAIL_FROM, else SMTP_USERNAME) must be a
+    verified sender in Brevo.
+    """
+    import base64
+    import httpx
+
+    sender = os.environ.get("MEDIPASS_EMAIL_FROM") or os.environ.get("SMTP_USERNAME") or ""
+    payload = {
+        "sender": {"name": os.environ.get("SMTP_FROM_NAME", "MediPass"), "email": sender},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html_body,
+    }
+    if text_body:
+        payload["textContent"] = text_body
+    if attachments:
+        payload["attachment"] = [{"name": name, "content": base64.b64encode(content).decode()}
+                                 for name, content, _ in attachments]
+    try:
+        r = httpx.post(BREVO_URL, json=payload, timeout=20,
+                       headers={"api-key": api_key, "accept": "application/json"})
+    except Exception as e:
+        _log(to_email, subject, f"FAILED {type(e).__name__}: {str(e)[:200]} (brevo)")
+        return False
+    if r.status_code in (200, 201, 202):
+        _log(to_email, subject, "SENT     (brevo)")
+        return True
+    _log(to_email, subject, f"FAILED brevo {r.status_code}: {r.text[:200]}")
+    return False
+
+
 def send_email(to_email: str, subject: str, html_body: str, text_body: str = "", attachments=None) -> bool:
-    """attachments: optional list of (file_name, bytes, "type/subtype")."""
+    """attachments: optional list of (file_name, bytes, "type/subtype").
+    Sends through Brevo's HTTPS API when BREVO_API_KEY is set, else SMTP."""
+    brevo_key = os.environ.get("BREVO_API_KEY")
+    if brevo_key:
+        return _send_via_brevo(brevo_key, to_email, subject, html_body, text_body, attachments)
+
     smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(os.environ.get("SMTP_PORT", 587))
     smtp_username = os.environ.get("SMTP_USERNAME")

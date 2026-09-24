@@ -35,7 +35,7 @@ project folder).
 - [ ] **Register with an already verified email** → "Email already registered. Log in, or use Forgot password."
 - [ ] **Forgot password** → reset email → set a new password → log in with it
 - [ ] **Wrong password** → "Incorrect email or password."
-- [ ] Server shell: `cat /data/logs/email.log` shows `SENT` for each email above
+- [ ] Server shell: `cat /data/logs/email.log` shows `SENT` (or `SENT (brevo)`) for each email above; `Network is unreachable` means SMTP is blocked, so set `BREVO_API_KEY` (see DEPLOYMENT.md)
 - [ ] **Sign out** is visible at the bottom of the sidebar on long pages and on a phone
 
 ## 2. Doctor verification

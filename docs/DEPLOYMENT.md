@@ -29,7 +29,9 @@ Variables, or `railway api`).
 | `MEDIPASS_SECRET_KEY` | long random string: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `GEMINI_API_KEY` | Gemini key |
 | `SMTP_SERVER` / `SMTP_PORT` | `smtp.gmail.com` / `587` |
-| `SMTP_USERNAME` / `SMTP_PASSWORD` | sending Gmail address and its app password |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | sending Gmail address and its app password (only used where SMTP isn't blocked) |
+| `BREVO_API_KEY` | **needed on Railway trial/hobby**: Brevo API key; email then goes over HTTPS (see below) |
+| `MEDIPASS_EMAIL_FROM` | sender address, verified in Brevo (defaults to `SMTP_USERNAME`) |
 | `MEDIPASS_DATABASE_URL` | `sqlite:////data/medipass.db` (four slashes) |
 | `MEDIPASS_UPLOAD_DIR` | `/data/uploads` |
 | `MEDIPASS_EMAIL_LOG` | `/data/logs/email.log` |
@@ -39,6 +41,24 @@ Variables, or `railway api`).
 | `MEDIPASS_FRONTEND_URL` | the frontend address (links in emails) |
 | `RAILPACK_DEPLOY_APT_PACKAGES` | `tesseract-ocr` (local OCR fallback) |
 | `MEDIPASS_REVIEWER_EMAILS` | emails that get the **Review doctors** screen, comma-separated |
+
+## Email on Railway: use Brevo
+
+Railway blocks outgoing SMTP (ports 25/465/587) on its trial and hobby plans,
+so Gmail SMTP fails there with *"Network is unreachable"* (visible in
+`/data/logs/email.log`). HTTPS is allowed, so the backend sends through
+Brevo's API whenever `BREVO_API_KEY` is set. Brevo's free plan allows 300
+emails a day.
+
+1. Create a free account at brevo.com.
+2. **Senders, domains & dedicated IPs → Senders → Add a sender**: your Gmail
+   address, then click the confirmation link Brevo emails you.
+3. **SMTP & API → API keys → Generate a new API key.**
+4. Railway → MediPass-AI → Variables: `BREVO_API_KEY` = the key, and
+   `MEDIPASS_EMAIL_FROM` = the verified sender address.
+
+Without `BREVO_API_KEY`, SMTP is used (local development, or Railway Pro,
+where SMTP is allowed).
 
 ## Frontend service settings
 
