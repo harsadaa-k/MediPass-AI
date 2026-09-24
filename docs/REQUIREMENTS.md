@@ -103,8 +103,8 @@ separate MVP user roles (see §7).
           ▼
    FastAPI backend  ──── JWT auth (passlib + python-jose)
           │
-          ├── Extraction module (mock OCR/NER now → swappable
-          │   for a real OCR + LLM pipeline later)
+          ├── AI extraction (Gemini multimodal LLM,
+          │   fallback: Tesseract OCR + rule-based)
           ├── Timeline & Intelligence module
           │     (conflict detection, gap detection)
           └── SQLAlchemy ORM
@@ -135,33 +135,37 @@ separate MVP user roles (see §7).
 | Auth | passlib (bcrypt) + python-jose (JWT) | Standard, well-tested, minimal setup. |
 | ORM / DB | SQLAlchemy + SQLite (dev) | Zero-config for a prototype; swappable for PostgreSQL via one connection-string change. |
 | Frontend | React (Vite) | Fast dev loop, works as a responsive web app per the original proposal's fallback option. |
-| Extraction (MVP) | Rule-based mock extractor | Stands in for OCR + NER; isolated behind one function so it can be replaced with a real OCR/LLM pipeline without touching the rest of the system. |
+| AI extraction | Google Gemini (multimodal LLM) with fallback models | Reads photos and PDFs, including handwriting and X-rays, into structured records with confidence scores. |
+| Fallback extraction | Tesseract OCR + PyMuPDF + rule-based extractor | Keeps uploads working when the AI service is unavailable. |
+| Imaging | pydicom | Reads DICOM X-rays and their body-part / study-date tags. |
+| Deployment | Railway (backend + frontend), Brevo email | HTTPS hosting with a persistent volume; transactional email over HTTPS. |
 
 ---
 
 ## 7. Out of Scope for the MVP (Future Work)
 
-- Real OCR / handwriting recognition model integration (mocked for now, clearly isolated)
+Built beyond the original MVP scope: real OCR + LLM extraction (Gemini with a
+local OCR fallback), QR-code / short-code access, voice dictation for doctors,
+doctor verification with reviewer approval, consultation-prescription linking,
+AI sharing recommendations and the AI clinical summary.
+
+Still future work:
 - Hospital and lab accounts as distinct roles
-- QR-code based temporary access links
 - ABDM/ABHA interoperability
-- Multilingual OCR, voice input, caregiver/family accounts
+- Multilingual extraction and voice input, caregiver/family accounts
 - Production-grade encryption at rest, full audit compliance tooling
 
 ---
 
-## 8. Build Plan (Phased)
+## 8. Build Plan (Phased) — status
 
-| Phase | Deliverable |
-|---|---|
-| 1 | Backend scaffold: models, auth, DB — **this document + Phase 1 code, delivered now** |
-| 2 | Document upload + mock AI extraction + patient verification endpoints |
-| 3 | Timeline endpoint with conflict/gap detection |
-| 4 | Provider access requests, consent, and record creation |
-| 5 | Audit log |
-| 6 | React frontend wired to the above |
-| 7 | End-to-end smoke test + demo script |
-
-Phases 1–5 are backend (this chat can build and test them directly). Phase 6 is a
-separate, sizeable frontend build. We'll do this one phase at a time so each piece is
-verified working before the next is layered on.
+| Phase | Deliverable | Status |
+|---|---|---|
+| 1 | Backend scaffold: models, auth, DB | ✅ Done |
+| 2 | Document upload + AI extraction + patient verification | ✅ Done |
+| 3 | Timeline with conflict detection | ✅ Done |
+| 4 | Provider access requests, consent, record creation | ✅ Done |
+| 5 | Audit log | ✅ Done |
+| 6 | React frontend | ✅ Done |
+| 7 | End-to-end smoke test + demo script | ✅ Done |
+| 8 | QR sharing, doctor verification, linking, notifications, deployment | ✅ Done |

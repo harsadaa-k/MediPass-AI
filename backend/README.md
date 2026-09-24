@@ -1,10 +1,12 @@
 # MediPass Backend (Prototype)
 
-FastAPI backend implementing Phases 1–5 of `docs/REQUIREMENTS.md`:
-auth, document upload with **real OCR extraction** (Tesseract + PyMuPDF —
-see "What's real vs. what's still simplified" below), patient verification,
-the timeline (with conflict/gap detection), provider access requests +
-consent, provider-added records, and the audit log.
+FastAPI backend for MediPass: auth and email verification, document upload
+with **Gemini multimodal extraction** (and a local **Tesseract + PyMuPDF OCR
+fallback** when the AI is unavailable), patient verification, the timeline
+(conflict detection, treatment courses, duplicates), scoped doctor access
+(requests, QR / short codes, AI sharing recommendation), doctor verification
+with reviewer approval, consultation-prescription linking, notifications,
+the Active Patients board and the audit log.
 
 ## Installing Tesseract (required for OCR)
 
@@ -91,20 +93,28 @@ app/
   models.py            ORM tables
   schemas.py            Pydantic request/response models
   auth.py                Password hashing, JWT, role-based auth dependency
-  ocr.py                  Real OCR: Tesseract for images, PyMuPDF (direct
+  llm.py                  Gemini: document extraction, sharing recommendation,
+                          voice-note structuring, clinical summary; model
+                          fallback chain and rule-based fallbacks
+  ocr.py                  Fallback OCR: Tesseract for images, PyMuPDF (direct
                           text or render+OCR) for PDFs
-  extraction.py            Entity extraction from OCR'd text -- the one
-                            remaining mock/simplified piece, isolated so
-                            it's a clean swap for real NER/LLM later
+  extraction.py            Rule-based extraction from OCR'd text (used when
+                            Gemini is unavailable)
+  confidence.py             Confidence scoring with reasons
+  durations.py              Treatment-course and follow-up day counts
+  duplicates.py             Duplicate file / record detection
+  linking.py                Consultation-note <-> prescription matching
   imaging.py                 X-ray/DICOM: body-part vocabulary, DICOM decode,
                              reconciling AI vs DICOM-tag body part
+  email_utils.py            Email via Brevo's HTTPS API, SMTP fallback
   storage.py                Saves uploaded files to disk, serves them back
-  intelligence.py            Conflict + gap detection for the timeline
+  intelligence.py            Conflict detection for the timeline
   access_control.py            Shared consent check used by timeline & consultations
   serializers.py                 Converts ORM rows -> API response shapes
   routers/
-    auth.py, documents.py, records.py, timeline.py,
-    access.py, consultations.py, audit.py, users.py
+    auth.py, documents.py, records.py, timeline.py, access.py,
+    consultations.py, audit.py, users.py, notifications.py, links.py,
+    patient_qr.py, doctor_verification.py, reviewer.py, provider_patients.py
 ```
 
 ## Environment variables (optional)
@@ -134,15 +144,11 @@ app/
 
 **Still simplified (by design, and clearly isolated so they're easy next
 steps):**
-- **Entity extraction** (`app/extraction.py`) is regex/keyword-based —
-  it looks for dose patterns, "allerg", "diagnos", etc. It is NOT a
-  trained medical NER model or an LLM call. It will misparse text a real
-  system wouldn't (e.g. an unusual drug name it doesn't recognize a
-  pattern around). This is the one remaining clean swap point: everything
-  downstream (models, routers, frontend) only cares about the dict shape
-  this function returns, so replacing it with a real NER model or an LLM
-  extraction call (e.g. the Anthropic or OpenAI API, using your own key)
-  doesn't require touching anything else.
+- **Fallback extraction** (`app/extraction.py`) is regex/keyword-based and
+  only runs when Gemini is unavailable. It looks for dose patterns,
+  "allerg", "diagnos", etc., so it is less accurate than the AI path; its
+  records get lower confidence and the patient checks them before they
+  join the timeline.
 - **X-ray body part** (`app/imaging.py`) is suggested by Gemini vision
   and/or the DICOM `BodyPartExamined` tag (the two are reconciled and
   disagreements flagged). No automatic method is 100% accurate, so every
@@ -151,8 +157,9 @@ steps):**
   `body_part_source: patient_confirmed`. There's no offline image
   classifier -- with Gemini down, JPEG/PNG X-rays arrive "not identified".
 
-## Next phases (not built yet)
+## Next phases
 
-- Real medical NER / LLM-based entity extraction (see "What's still simplified" above)
-- Patient/provider profile fields (date of birth, specialty, etc. exist in the data model but have no UI yet)
-- Hospital/lab roles, QR-based temporary access links, ABDM interoperability
+- ABDM / ABHA interoperability
+- Hospital and lab roles that push reports directly
+- Multilingual extraction and voice notes
+- PostgreSQL and encryption at rest for production scale
