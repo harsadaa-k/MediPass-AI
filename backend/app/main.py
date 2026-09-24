@@ -19,8 +19,11 @@ Base.metadata.create_all(bind=engine)
 add_missing_columns(["doctor_credentials", "documents"])  # new nullable columns on existing tables
 
 # Seed demo accounts for hackathon demos (idempotent — skips if they exist).
-from seed_demo_data import seed_demo_data
-seed_demo_data()
+# Their passwords are in the public repo, so a public deployment should set
+# MEDIPASS_SEED_DEMO=false.
+if os.environ.get("MEDIPASS_SEED_DEMO", "true").lower() == "true":
+    from seed_demo_data import seed_demo_data
+    seed_demo_data()
 
 app = FastAPI(
     title="MediPass API",
